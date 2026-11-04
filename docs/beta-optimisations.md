@@ -5,7 +5,7 @@ Later work on `--beta`, including a faster CPU clock, is in [fast-cpu.md](fast-c
 Branch: `beta-optimisations`. Build with:
 
 ```powershell
-python -I build.py --beta                 # cube layout -> out-blueprints-beta/
+python -I build.py --beta                 # districts layout (docs/layout.md) -> out-blueprints-beta/
 python -I build.py --beta --no-fast-shifts   # fall back to 2-cycle shifts (fast shifts and the key queue are on by default, see input-queue.md)
 ```
 

@@ -105,6 +105,6 @@ A one-letter transient glyph can show for a few updates while a screen cell chan
 
 ## Physical build
 
-In `--beta` builds the console stands on a solid slab of blocks that runs under the keyboard, the screen and the seam, with a strip along a flat logic wall. Every screen pixel has a block plate behind it, and RUN, RESET and the manual clock switches sit on the slab above the keyboard.
+In `--beta` builds every screen pixel has a block plate behind it, and the keyboard stands well back from the screen, joined to it by one-wide rails with RUN, RESET and the manual clock switches on them beyond the keys (`docs/layout.md`).
 
 The game's part definitions say switches and buttons attach only through their back face, which points down in these orientations, and most had air there. The build now checks each module with those rules (`loose_parts` in `accelerated/supports.py`) and fails if a part is unattached. Signs are assumed to attach only through their back as well, because they are not in the game's own definitions. None of this has been loaded in the game yet.
