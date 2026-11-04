@@ -51,3 +51,10 @@ Score, result lines, solid console and console switches (7a685db), same idle wor
 |---|---|---|---|---|---|---|---|---|
 | 2026-11-04 | 7a685db | `--beta --flat` with cartridge, C33, 8 rows | b98d2aef2fa5 | 20000 | Python | 31.54 | 634.0 | -0.1% vs 634.7 |
 | 2026-11-04 | 7a685db | `--beta --flat` with cartridge, C33, 8 rows | b98d2aef2fa5 | 20000 | Rust | 0.099 | 202420 | 319 times the Python speed |
+
+Menu firmware, one cartridge with BASIC, Snake and Pi, fixed seam, districts layout (branch `cartridge-menu`), same 20000-tick stimulus, no halt or fault. The firmware differs: this build draws the menu and waits for a key, where the rows above wait at the BASIC prompt. The previous version's export was not available to re-measure, so the comparison is against its recorded row, from another session. This measures simulator speed, not machine speed: BASIC's 14 commands went from 896.5 s to 1013.3 s (+13%, docs/fast-cpu.md).
+
+| Date | Commit | Variant | Joined blueprint sha256 (prefix) | Ticks | Simulator | Wall (s) | Ticks/sec | vs. previous |
+|---|---|---|---|---|---|---|---|---|
+| 2026-11-04 | 74b1352 | `--beta` with cartridge, districts, C33, 8 rows | c3adb13fbd9a | 20000 | Python | 26.38 / 26.80 | 758.2 / 746.4 | +18.7% (mean 752 vs 634.0) |
+| 2026-11-04 | 74b1352 | `--beta` with cartridge, districts, C33, 8 rows | c3adb13fbd9a | 20000 | Rust | 0.094 | 212719 | +5.1% vs 202420 |
