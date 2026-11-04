@@ -10,6 +10,7 @@ venv/
 
 # Build outputs (build.py)
 out-blueprints*/
+out-*/
 .build/
 
 # Rust (circuit_viewer)
