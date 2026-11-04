@@ -334,7 +334,7 @@ def cpu(image, ram_bytes=64, **options):
     if cartridge is None:
         with final_text_hook(transforms):
             return firmware_cpu(image, ram_bytes, **options)
-    with cart.window(), final_text_hook([cart.cpu_source] + transforms):
+    with cart.window(), cart.board_storage(), final_text_hook([cart.cpu_source, cart.note_board_lines] + transforms):
         result = firmware_cpu(image, ram_bytes, **options)
     result.report['cpu']['cartridge'] = dict(base=cart.BASE, words=len(cartridge) // 4, address_bits=cart.ADDRESS_BITS)
     return result

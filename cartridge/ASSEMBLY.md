@@ -10,7 +10,7 @@ Operation:
 
 1. RUN (blue) and RESET (red) are on the CONSOLE, above the keyboard. With RUN OFF, hold RESET ON for six seconds, release it, then turn RUN ON.
 2. At the BASIC prompt tap **S** then **ENTER**. The screen fills with dots and Snake starts.
-3. Steer with one tap of **W A S D**. No ENTER. `Q` is the head, `O` the body and `+` food. All four edges wrap around. `SCORE` below the board counts the food eaten. Running into the snake's own body shows `YOU LOST`, and filling the board (score 46) shows `YOU WON`. The last board and the score stay up. Tap one turn at a time: a tap made while the last one is still waiting is ignored.
+3. Steer with one tap of **W A S D**. No ENTER. `Q` is the head, `O` the body and `+` food. All four edges wrap around. The bottom row shows the score on the left and, on the right, the key just tapped. Tap turns ahead if you like: they queue, and one applies per move. Running into the snake's own body shows `YOU LOST`, and filling the board (score 82) shows `YOU WON`. The last board and the score stay up.
 4. RESET returns to BASIC.
 
 If the cartridge is not connected, `S` stops the CPU with the CPU ERR screen, and RESET recovers.

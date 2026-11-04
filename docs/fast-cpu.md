@@ -81,8 +81,8 @@ builds anyway.
 | CPU timers | Updates per cycle | BASIC (14 commands) | Snake |
 |---:|---:|---|---|
 | 20/6/12/6 | 49 | correct | correct |
-| **16/2/8/2 (shipped)** | 33 | correct | correct, including a long game with eight turns |
-| 15/2/8/2 | 32 | not run | correct for the 75 s tested |
+| **16/2/8/2 (shipped)** | 33 | correct | correct, including a played game to 45 food and a perfect game to 82 on the 12x7 board |
+| 15/2/8/2 | 32 | not run | correct, a played game to 45 food on the 12x7 board |
 | 14/2/8/2 | 31 | correct | **fails**: the tail stops clearing |
 | 12/2/8/2 | 29 | correct | **fails** |
 | 12/1/8/1 | 27 | **fails** | not run |
@@ -96,4 +96,4 @@ back to 20/6/12/6 in-game; no rebuild is needed.
 * `fast_sim/` is a Rust port of the simulator's run loop, roughly 260 times faster than the Python one, which stays the authority. Build it with `cargo build --release` there. `fast_sim/verify.py` compares every controller's state against the Python model, on random circuits and on an export.
 * `bench_commands.py` times BASIC commands on any build and decodes the screen. It accepts a folder of module blueprints
   with link maps, so it can run builds without source, and `--cpu-ticks` overrides the clock for a sweep.
-* `cartridge/sim_snake.py` measures Snake's load time.
+* `cartridge/sim_snake.py` measures Snake's load time, and `cartridge/sim_keys.py` its key handling, with `--play` for a checked game.

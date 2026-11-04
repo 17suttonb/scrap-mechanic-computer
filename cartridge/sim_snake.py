@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 from bench_commands import Machine  # noqa: E402
 
 BOOT_WAIT = 6000
+BOARD_ROWS = 7
 
 
 def main():
@@ -43,7 +44,7 @@ def main():
         last_state = state
         rows = m.text()
         cells = ''.join(rows)
-        complete = cells.count('+') == 1 and cells.count('Q') == 1 and all(len(r) == 12 for r in rows[:4]) and '#' not in cells
+        complete = cells.count('+') == 1 and cells.count('Q') == 1 and all(len(r) == 12 for r in rows[:BOARD_ROWS]) and '#' not in cells
         if not complete or rows == previous:
             continue
         previous = rows

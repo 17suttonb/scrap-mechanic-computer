@@ -39,13 +39,11 @@ direct_keyword:
     addi x13,x0,10
     j keyword_dispatch_loaded
 enter_cartridge:
-    ; Clear the board and fill the hidden columns of each row, then run the cartridge:
-    ; walls in columns 12 and 15, '0' in columns 13 and 14 (row 0 holds the score there).
-    li x6,53489667
-    sw x6,12(x8)
-    sw x6,28(x8)
-    sw x6,44(x8)
-    sw x6,60(x8)
+    ; Clear the RAM, which the cartridge sees as the top of its board, and run the cartridge.
+    sw x0,12(x8)
+    sw x0,28(x8)
+    sw x0,44(x8)
+    sw x0,60(x8)
     sw x0,0(x8)
     sw x0,4(x8)
     sw x0,8(x8)
@@ -58,12 +56,6 @@ enter_cartridge:
     sw x0,48(x8)
     sw x0,52(x8)
     sw x0,56(x8)
-    addi x10,x0,21      ; arguments: head, tail, step, food, food mark, head mark
-    addi x11,x0,20
-    addi x12,x0,1
-    addi x13,x0,38
-    addi x14,x0,2
-    addi x15,x0,4
     j 2048
 direct_general_fresh:
     mv x4,x1
