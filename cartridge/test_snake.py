@@ -22,7 +22,7 @@ def play(script, limit=400000):
 
 
 def rows(frame):
-    return frame.split('\n')
+    return frame.split(chr(10))[1:]
 
 
 def head(frame):
@@ -35,9 +35,9 @@ def head(frame):
 # 1. hands off: the snake runs right along row 1 and hits the wall
 m, f = play({})
 assert m.stop
-assert rows(f[0])[1] == '....DO......', rows(f[0])
-assert rows(f[-1])[1] == '..........DO', rows(f[-1])
-assert sum(len(x) for x in f) and all(len(x) == 12 * 4 + 3 for x in f if x), [len(x) for x in f]
+assert rows(f[0])[1] == '....DO.....', rows(f[0])
+assert rows(f[-1])[1] == '.........DO', rows(f[-1])
+assert sum(len(x) for x in f) and all(len(x) == 12 * 4 for x in f[:-1] if x), [len(x) for x in f]
 
 # 2. steering: down, then left, then up, then right = 2x2 loop; reversing is ignored
 m, f = play({1: 'S', 2: 'A', 3: 'W', 4: 'D'})

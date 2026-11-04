@@ -80,6 +80,7 @@ class Machine:
         self.line = None               # line currently waiting (bytes), until ACK
         self.pos = 0
         self.frames = []
+        self.newlines = 0
         self.cur = []
         self.retired = 0
         self.polls = 0
@@ -114,12 +115,12 @@ class Machine:
         if a >= 0xFFFFFF00:
             off = a - 0x100000000
             if off == -252:
-                if v & 255 == 12:
-                    if self.cur:
+                if v & 255 == 10:
+                    if self.newlines % 4 == 0 and self.cur:      # each frame is four newline-led rows
                         self.frames.append(bytes(self.cur))
-                    self.cur = []
-                else:
-                    self.cur.append(v & 255)
+                        self.cur = []
+                    self.newlines += 1
+                self.cur.append(v & 255)
             elif off == -250:
                 self.line = None
             else:
