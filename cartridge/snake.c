@@ -1,21 +1,21 @@
 /* Snake for the RV32E console computer (12x4 text screen, 5x7 font).
  *
- * Memory map used (same as firmware/basic.s):
- *   RAM 0..47   the board, one byte per cell, row-major, 12 columns x 4 rows
+ * Memory map used (the cartridge sees the 64-byte RAM at address 0; see docs/cartridge.md):
+ *   RAM 0..63   the board: 4 rows of 16 bytes, of which columns 0..11 are the playfield
  *   -252        write: character to the screen (10 = newline, 12 = clear)
  *   -250        write: acknowledge the submitted input line
- *   -240        read: bit 7 set = a line is waiting
- *   -236        read: next character of the waiting line
+ *   -240        read:  bit 7 set = a line is waiting
+ *   -236        read:  next character of the waiting line
  *
- * The board doubles as the screen buffer and the snake's body list:
- *   '.' empty   '+' food   'O' head
- *   W A S D     a body cell, holding the direction towards the next cell
- * so drawing is a straight copy of the board and the tail is advanced by
- * reading the letter in its cell.  Only byte loads/stores, no calls, no stack.
+ * The board doubles as screen buffer and body list:
+ *   '.' empty   '+' food   'O' head   W A S D  a body cell holding the direction to the next cell
+ * so drawing is a straight copy and the tail advances by reading the letter in its cell.
+ * A cell's address is its position: pos = row * 16 + column.  Columns 12..15 are walls
+ * (any byte that is neither '.' nor '+' stops the snake).
  *
  * Steer by typing W, A, S or D then ENTER; with no input the snake keeps going.
- * Walls and the snake's own body (including the cell the tail is leaving)
- * end the game; the final board stays on screen.  Reset to play again.
+ * Hitting a wall or the body ends the game; the final board stays on screen.
+ * Only byte loads/stores, no calls, no stack: every variable lives in a register.
  */
 #define RAM ((volatile unsigned char *)0)
 #define SCREEN (*(volatile unsigned char *)-252)
@@ -23,36 +23,27 @@
 #define STATUS (*(volatile signed char *)-240)
 #define KEY (*(volatile unsigned char *)-236)
 
-#define EMPTY '.'
-#define FOOD '+'
-#define HEAD 'O'
-#define COLS 12
-#define CELLS 48
+/* step in pos for a direction letter */
+#define MOVE(c) ((c) == 'D' ? 1 : (c) == 'A' ? -1 : (c) == 'S' ? 16 : -16)
 
 #define ROW(r) \
-    SCREEN = RAM[r * COLS + 0];  SCREEN = RAM[r * COLS + 1];  SCREEN = RAM[r * COLS + 2]; \
-    SCREEN = RAM[r * COLS + 3];  SCREEN = RAM[r * COLS + 4];  SCREEN = RAM[r * COLS + 5]; \
-    SCREEN = RAM[r * COLS + 6];  SCREEN = RAM[r * COLS + 7];  SCREEN = RAM[r * COLS + 8]; \
-    SCREEN = RAM[r * COLS + 9];  SCREEN = RAM[r * COLS + 10]; SCREEN = RAM[r * COLS + 11]
+    SCREEN = RAM[r * 16 + 0];  SCREEN = RAM[r * 16 + 1];  SCREEN = RAM[r * 16 + 2]; \
+    SCREEN = RAM[r * 16 + 3];  SCREEN = RAM[r * 16 + 4];  SCREEN = RAM[r * 16 + 5]; \
+    SCREEN = RAM[r * 16 + 6];  SCREEN = RAM[r * 16 + 7];  SCREEN = RAM[r * 16 + 8]; \
+    SCREEN = RAM[r * 16 + 9];  SCREEN = RAM[r * 16 + 10]; SCREEN = RAM[r * 16 + 11]
 
-/* Entry point: point the stack at the 16 spare bytes above the board, then play. */
-void __attribute__((naked, section(".text.start"))) _start(void) {
-    __asm__ volatile("li sp, 64; j game");
-}
+void __attribute__((noreturn)) _start(void) {
+    int i, head, tail, food, dir, c;
 
-void __attribute__((noreturn, used)) game(void) {
-    int i, head, tail, food, x, y, dir, key;
+    for (i = 0; i < 64; i++) RAM[i] = (i & 12) == 12 ? 'X' : '.';
 
-    for (i = 0; i < CELLS; i++) RAM[i] = EMPTY;
-    x = 5;
-    y = 1;
-    head = y * COLS + x;
-    tail = head - 1;
+    head = 21;                  /* row 1, column 5 */
+    tail = 20;
     dir = 'D';
     RAM[tail] = 'D';
-    RAM[head] = HEAD;
-    food = 30;
-    RAM[food] = FOOD;
+    RAM[head] = 'O';
+    food = 38;                  /* row 2, column 6 */
+    RAM[food] = '+';
 
     for (;;) {
         SCREEN = 12;
@@ -62,39 +53,32 @@ void __attribute__((noreturn, used)) game(void) {
         ROW(3);
 
         if (STATUS < 0) {
-            key = KEY;
+            c = KEY;
             ACK = 0;
-            if ((key == 'W' && dir != 'S') || (key == 'S' && dir != 'W') ||
-                (key == 'A' && dir != 'D') || (key == 'D' && dir != 'A'))
-                dir = key;
+            /* accept only W/A/S/D, and not a reversal of the current direction */
+            if ((c == 'W' || c == 'A' || c == 'S' || c == 'D') && MOVE(c) + MOVE(dir) != 0)
+                dir = c;
         }
 
         RAM[head] = dir;
-        if (dir == 'D') { head++; x++; }
-        else if (dir == 'A') { head--; x--; }
-        else if (dir == 'S') { head += COLS; y++; }
-        else { head -= COLS; y--; }
-        if ((unsigned)x >= COLS || (unsigned)y >= 4) break;
+        head += MOVE(dir);
+        if ((unsigned)head >= 64) break;
 
-        key = RAM[head];
-        if (key == FOOD) {
-            /* grow: keep the tail, put new food on the next free cell (stride 17 visits all 48) */
-            for (i = 0; i < CELLS; i++) {
-                food += 17;
-                if (food >= CELLS) food -= CELLS;
-                if (RAM[food] == EMPTY) { RAM[food] = FOOD; break; }
+        c = RAM[head];
+        if (c == '+') {
+            /* grow: keep the tail; the next free cell, stepping by 17 (mod 64), gets the food */
+            for (i = 0; i < 64; i++) {
+                food = (food + 17) & 63;
+                if (RAM[food] == '.') { RAM[food] = '+'; break; }
             }
-        } else if (key != EMPTY) {
+        } else if (c != '.') {
             break;
         } else {
-            key = RAM[tail];
-            RAM[tail] = EMPTY;
-            if (key == 'D') tail++;
-            else if (key == 'A') tail--;
-            else if (key == 'S') tail += COLS;
-            else tail -= COLS;
+            c = RAM[tail];
+            RAM[tail] = '.';
+            tail += MOVE(c);
         }
-        RAM[head] = HEAD;
+        RAM[head] = 'O';
     }
     /* game over: keep the final board and stop */
     for (;;) { }

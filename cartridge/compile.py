@@ -11,7 +11,7 @@ from rvtools import disasm, elf_text
 
 HERE = Path(__file__).resolve().parent
 CART_BASE = 0x800
-ARGS = ['-target', 'riscv32-freestanding-none', '-mcpu=generic_rv32+e', '-mabi=ilp32e', '-Os', '-ffreestanding', '-nostdlib',
+ARGS = ['-target', 'riscv32-freestanding-none', '-mcpu=generic_rv32+e+reserve_x1+reserve_x8+reserve_x9', '-mabi=ilp32e', '-Os', '-fomit-frame-pointer', '-ffreestanding', '-nostdlib',
         '-fno-delete-null-pointer-checks', '-fno-pic']
 
 
@@ -20,6 +20,8 @@ def main(source=HERE / 'snake.c'):
     subprocess.run([sys.executable, '-m', 'ziglang', 'cc', *ARGS, '-Wl,-T,' + str(HERE / 'link.ld'), '-o', str(elf), str(source)], check=True)
     base, image = elf_text(elf)
     assert base == CART_BASE, hex(base)
+    image = image.rstrip(bytes(1))
+    image += bytes(-len(image) % 4)
     (HERE / (elf.stem + '.bin')).write_bytes(image)
     (HERE / (elf.stem + '.lst')).write_text(''.join(f'{base + i:04x}: {int.from_bytes(image[i:i + 4], "little"):08x}  {disasm(int.from_bytes(image[i:i + 4], "little"), base + i)}\n' for i in range(0, len(image), 4)))
     print(f'{elf.stem}: {len(image) // 4} words at {base:#x}')

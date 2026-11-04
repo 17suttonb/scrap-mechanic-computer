@@ -4,8 +4,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rvtools import Machine, elf_text
 
-elf = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parent / 'snake.elf')
-base, image = elf_text(elf)
+base = 0x800
+image = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parent / 'snake.bin').read_bytes()
 
 
 def play(script, limit=400000):
@@ -50,7 +50,7 @@ m, f = play({1: 'S'})
 assert head(f[2]) == (6, 2)
 body = lambda fr: sum(fr.count(c) for c in 'WASDO')
 print('body lengths', [body(x) for x in f if x])
-assert body(f[2]) == body(f[1]) + 1 and '+' in f[2] and rows(f[2])[3][11] == '+', f[2]
+assert body(f[2]) == body(f[1]) + 1 and '+' in f[2] and rows(f[2])[3][7] == '+', f[2]
 
 # 4. a ten-step run for the instruction budget
 m = Machine(image, base)
