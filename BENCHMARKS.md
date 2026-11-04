@@ -16,3 +16,13 @@ commit 9bbe5c1 edited `firmware/basic.s` without updating `release.json`. The de
 from c4f1e16, the last commit whose default build matches the pinned release (joined hash matches `release.json`).
 
 | 2026-11-04 | input-queue | `--beta` (16-deep key queue + fast shifts) | 21993414f7ac | 20000 | 24.63 | 812.2 | +7.1% vs beta in the same session (beta re-measured at 758.1 ticks/s; the machine was slower than for the rows above) |
+
+Snake cartridge (branch `snake-rom`), measured in one session, two runs each, same 20000-tick idle workload (no halt or fault in any run):
+
+| Date | Commit | Variant | Joined blueprint sha256 (prefix) | Ticks | Wall (s) | Ticks/sec | vs. previous |
+|---|---|---|---|---|---|---|---|
+| 2026-11-04 | fb5fa7f (input-queue) | `--beta` (previous version, re-measured) | b276c586395d | 20000 | 16.67 / 16.92 | 1199.7 / 1182.2 | baseline |
+| 2026-11-04 | e55ca1c (snake-rom) | `--beta` with cartridge (3 modules) | 5c7278ae53bc | 20000 | 19.19 / 19.03 | 1042.4 / 1051.1 | -12.1% (mean 1047 vs 1191) |
+
+The slowdown is host simulation speed only: the cartridge build has about 1.3k more logic blocks (+3.6%: CORE 22.9k to 23.8k, plus the 0.4k CARTRIDGE), and the CPU clock settings (20/6/12/6) and BASIC behaviour are unchanged.
+The BASIC idle workload does not run the cartridge; the Snake workload is in docs/cartridge.md.

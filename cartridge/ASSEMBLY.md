@@ -7,8 +7,8 @@ exactly as in the two-module release (see the 46-block seam rows there).
 The CARTRIDGE sits on the far side of the CORE from the CONSOLE. Mate the plain
 L-shaped pad on the CORE's far end (labelled WELD, next to the sign
 CARTRIDGE SEAM) with the pad on the CARTRIDGE. Along that seam there is one
-continuous row of **51 blocks**. Connect each coloured block to the grey block
-directly touching it across the seam: 51 short connections. Sources are green.
+continuous row of **62 blocks**. Connect each coloured block to the grey block
+directly touching it across the seam: 62 short connections. Sources are green.
 The CORE's own side carries the address pins going out; the CARTRIDGE's side
 carries the instruction fields coming back.
 

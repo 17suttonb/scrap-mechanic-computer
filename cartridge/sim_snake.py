@@ -79,6 +79,7 @@ def main():
             print(f'--- tick {sim.time} (+{done}) busy={flags["busy"]} wall={time.perf_counter() - began:.0f}s')
             print('\n'.join(rows), flush=True)
             last = rows
+    print('DONE', sim.time, flush=True)
 
 
 if __name__ == '__main__':

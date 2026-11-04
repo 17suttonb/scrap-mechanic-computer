@@ -46,6 +46,14 @@ adds only this package and its bundled dependency. Other Python/platform
 configurations require a compatible LZ4 installation and are not the tested
 configuration described here.
 
+## Program cartridge (beta)
+
+`python -I build.py --beta` also exports a third blueprint, **CARTRIDGE 3 of 3**, holding a compiled
+Snake game that the CPU runs from outside its own gates: type `S` then ENTER at the BASIC prompt.
+The cartridge is a ROM generated from `cartridge/snake.c`; see [docs/cartridge.md](docs/cartridge.md)
+for the design and [cartridge/ASSEMBLY.md](cartridge/ASSEMBLY.md) for welding the third module.
+The pinned default build is unchanged and has no cartridge.
+
 ## Source layout
 
 - `build.py`: command-line entry point.
