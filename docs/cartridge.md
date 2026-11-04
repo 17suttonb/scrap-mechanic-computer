@@ -20,7 +20,7 @@ pre-decoded fields (register numbers, immediate, branch target, flags), and so d
 | Direction | Signals | Wires |
 |---|---|---|
 | CORE to CARTRIDGE | `cart_address` = PC bits 11..2 | 10 |
-| CARTRIDGE to CORE | `sa`, `sb`, `sw` (15 each: one-hot read A, read B and write register x1..x15), `imm` (12, sign-extended by the CPU), `target` (10), `f3`, `aluop` (3 each), `legal`, `load`, `store`, `branch`, `jal`, `jalr`, `immediate`, `compare`, `static` | 80 |
+| CARTRIDGE to CORE | `sa`, `sb`, `sw` (15 each: one-hot read A, read B and write register x1..x15), `imm` (12, sign-extended by the CPU), `target` (10), `f3`, `aluop` (3 each), `legal`, `load`, `store`, `branch`, `jal`, `jalr`, `immediate`, `compare`, `static` | 82 |
 
 Bits that no instruction in the image ever sets are constant, and pins that share a driver share a wire, so the
 seam actually carries **62 links** for Snake (the console seam is unchanged at 46). The cartridge itself is 407 logic
