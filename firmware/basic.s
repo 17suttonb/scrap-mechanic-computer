@@ -39,7 +39,6 @@ direct_general_fresh:
     li x9,4294963456
     addi x10,x0,-1
     addi x13,x0,10
-    j statement
 statement:
     jal x12,spaces
     beq x4,x0,finished
@@ -60,16 +59,16 @@ statement:
 keyword_dispatch_loaded:
     addi x6,x3,-80
     beq x6,x0,print_long
+    addi x6,x3,-71
+    beq x6,x0,goto_command
+    addi x6,x3,-73
+    beq x6,x0,if_command
     addi x6,x3,-76
     beq x6,x0,letter_l
     addi x6,x3,-82
     beq x6,x0,letter_r
     addi x6,x3,-78
     beq x6,x0,new_command
-    addi x6,x3,-71
-    beq x6,x0,goto_command
-    addi x6,x3,-73
-    beq x6,x0,if_command
     addi x6,x3,-69
     beq x6,x0,end_command
     addi x6,x3,-72
@@ -260,7 +259,6 @@ clear:
     addi x6,x0,12
     sb x6,-252(x0)
     blt x10,x0,acknowledge
-    j finished
 finished:
     blt x10,x0,prompt
     mv x11,x10
@@ -399,17 +397,19 @@ expression:
     addi x15,x0,0
     addi x5,x0,0
 term:
+    addi x3,x4,-48
+    bltu x3,x13,digits
+    addi x6,x4,-65
+    addi x3,x0,26
+    bltu x6,x3,term_variable
     addi x6,x4,-32
     beq x6,x0,term_space
     addi x6,x4,-45
     beq x6,x0,term_negative
     addi x6,x4,-43
     beq x6,x0,term_space
-    addi x3,x4,-48
-    bltu x3,x13,digits
-    addi x6,x4,-65
-    addi x3,x0,26
-    bgeu x6,x3,error
+    j error
+term_variable:
     add x6,x8,x6
     lbu x3,0(x6)
     lbu x4,0(x9)
@@ -532,15 +532,9 @@ direct_operator_ready:
     bne x7,x0,direct_assign_result
     sb x15,-249(x0)
     j wait_line
-direct_prompt:
-    addi x6,x0,2
-    sb x6,-252(x0)
-direct_acknowledge:
-    sb x0,-250(x0)
-    j wait_line
 direct_assign_result:
     sb x15,0(x7)
-    j direct_prompt
+    j prompt
 direct_subtract_term:
     sub x15,x15,x3
     j direct_after_term
@@ -550,7 +544,7 @@ direct_after_space:
     j direct_operator_ready
 direct_operator_tail:
     beq x1,x11,direct_after_space
-    j direct_syntax_error
+    j error
 direct_unary_minus:
     xori x5,x5,6
 direct_unary_plus:
@@ -564,15 +558,11 @@ direct_more_digits:
     j direct_digit_read
 direct_variable_term:
     addi x6,x1,-65
-    bgeu x6,x13,direct_syntax_error
+    bgeu x6,x13,error
     add x6,x6,x8
     lbu x3,0(x6)
     lbu x1,-236(x0)
     j direct_apply_term
-direct_syntax_error:
-    addi x6,x0,3
-    sb x6,-252(x0)
-    j direct_prompt
 
 direct_numbered:
     mv x12,x6

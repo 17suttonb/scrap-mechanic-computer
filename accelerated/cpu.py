@@ -23,7 +23,7 @@ def flat_alu():
         extra += f"  c({bit}) <= {reduction('or', terms)};\n"
     return re.sub('  signal gp,gg:[^;]+;\\n', '', s[:start] + extra + s[end:])
 
-def frontend(text, image):
+def frontend(text, image, fast_shifts=False):
     rows = metadata(image)
     for r in range(16):
         for name in ('a', 'b'):
@@ -37,7 +37,7 @@ def frontend(text, image):
     end = text.index('entity rv_branch_compare is', start)
     text = text[:start] + flat_alu() + '\n' + text[end:]
     from accelerated.cpu_components import fixed_shifts_plan as plan
-    if False and plan(image)['applied']:
+    if fast_shifts and plan(image)['applied']:
         text = replace_once(text, 'or d_shiftleft or d_shiftright;', "or '0';")
     return text
 
@@ -280,10 +280,12 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
     return text.rsplit('end;', 1)[0] + extra + 'end;\n'
 
 def cpu(image, ram_bytes=64, **options):
+    options.pop('beta', None)
+    fast_shifts = options.pop('fast_shifts', False)
     original = register_alias.source
 
     def provider(*a, **kw):
-        return frontend(original(*a, **kw), image)
+        return frontend(original(*a, **kw), image, fast_shifts)
     old_pair = pair_branch.source
 
     def paired(text, img):
@@ -297,7 +299,7 @@ def cpu(image, ram_bytes=64, **options):
     with patch.object(register_alias, 'source', provider), patch.object(pair_branch, 'source', paired), patch.object(Builder, '__init__', research_builder):
         result = base_cpu(image, ram_bytes, **options)
     result.report = deepcopy(result.report)
-    result.report['cpu']['modular_acceleration'] = dict(direct_operand_predecode=True, flat_carry_lookahead=True, dedicated_address_adder=False, single_cycle_fixed_shifts=False, extra_issue_lanes=True)
+    result.report['cpu']['modular_acceleration'] = dict(direct_operand_predecode=True, flat_carry_lookahead=True, dedicated_address_adder=False, single_cycle_fixed_shifts=fast_shifts, extra_issue_lanes=True)
     result.report['cpu']['retirement_bundle_lengths'] = {str(pc): len(seq) for pc, seq in bundles(image, 6, True, True, False, True, True).items()}
     result.report['cpu']['modular_acceleration']['parallel_static_RAM_stores'] = True
     result.report['cpu']['modular_acceleration']['fused_loads'] = False

@@ -63,7 +63,7 @@ class Program:
     listing: list
     source: str
 
-def assemble(source):
+def assemble(source, compact_li=False):
     labels = {}
     records = []
     pc = 0
@@ -90,6 +90,8 @@ def assemble(source):
                 raise ValueError('.org must be a nonnegative word-aligned address')
             continue
         count = 2 if op in ('li', 'call') else len(args) if op == '.word' else 1
+        if compact_li and op == 'li' and len(args) == 2 and re.fullmatch(r'\d+', args[1].strip()) and int(args[1]) & 4095 == 0:
+            count = 1
         records.append((pc, number, op, args, line))
         pc += 4 * count
         extent = max(extent, pc)
@@ -114,6 +116,8 @@ def assemble(source):
                 high = value + 2048 >> 12 & 1048575
                 low = signed(value, 12)
                 words = [high << 12 | rd << 7 | 55, iword(19, rd, rd, low)]
+                if compact_li and low == 0 and len(args) == 2 and re.fullmatch(r'\d+', args[1].strip()):
+                    words = words[:1]
             elif op == 'call':
                 delta = ev(args[0]) - pc
                 high = delta + 2048 >> 12
