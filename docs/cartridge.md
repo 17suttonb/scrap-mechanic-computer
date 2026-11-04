@@ -114,12 +114,12 @@ The standard cartridge has 850 rows from 978 words and 264 data bytes. Its 1812 
 | | ADDRESS | | 98 |
 | | DIRECTORY | | 39 |
 | TBASIC | BASIC START | 19 | 33 |
-| | BASIC DIRECT | 23 | 52 |
-| | BASIC STATEMENT | 24 | 59 |
-| | BASIC COMMANDS | 216 | 280 |
+| | BASIC DIRECT | 22 | 52 |
+| | BASIC STATEMENT | 26 | 59 |
+| | BASIC COMMANDS | 225 | 280 |
 | | BASIC EDITOR | 96 | 152 |
 | | BASIC EXPRESSION | 47 | 93 |
-| | BASIC FAST PATH | 43 | 84 |
+| | BASIC FAST PATH | 40 | 84 |
 | SNAKE | SNAKE SETUP | 9 | 16 |
 | | SNAKE MOVE | 7 | 17 |
 | | SNAKE FOOD | 18 | 42 |
@@ -127,7 +127,7 @@ The standard cartridge has 850 rows from 978 words and 264 data bytes. Its 1812 
 | PI | PI SETUP | 58 | 292 |
 | | PI SERIES | 77 | 122 |
 | | PI ARITHMETIC | 118 | 177 |
-| | PI DISPLAY | 71 | 136 |
+| | PI DISPLAY | 84 | 136 |
 
 ## Folded rows
 
@@ -145,9 +145,9 @@ Only in board mode, because they rely on its memory path:
 
 ## TBASIC
 
-`cartridge/basic.s` is the same language: every screen of the 14-command benchmark matches, and so does every screen of a longer session of 104 commands covering all the keywords, errors, 16 resident lines and a seventeenth refused, editing and deleting lines, and RUN with GOTO and IF, compared one by one with the previous build. The exception is `S` alone, which used to start Snake and is now an error like any other unknown word.
+`cartridge/basic.s` is the same language: every screen of the 14-command benchmark matches, and so does every screen of a longer session of about 90 commands covering the keywords, errors, 16 resident lines and a seventeenth refused, editing and deleting lines, and RUN with GOTO and IF, compared one by one with the previous build. `S` alone used to start Snake and is now an error like any other unknown word, and the commands after it in that session have no baseline to compare with. A line count at the 40,000 update limit of the comparison's wait, a `LIST` of 17 lines, was cut short on the slower build and checked by the screens after it.
 
-It runs in console mode, so the line buffer, echo and service commands work as they always have. The console's page 0 holds no text now, only the prompt, so BASIC draws `TBASIC+` and `16 LINES` itself, at its start and after `C`. Page 1, the help screen, is still text in the CONSOLE. It is the one thing about a program left there: drawing it from the cartridge would take about 24 s more per `H`, and any other cartridge can ignore it.
+It runs in console mode, so the line buffer, echo and service commands work as they always have. The console's page 0 holds no text now, only the prompt, so BASIC draws `TBASIC+` and `16 LINES` itself, at its start and after `C`. Page 1, the help screen, is still text in the CONSOLE. It is the one thing about a program left there: drawing it from the cartridge would take an estimated 24 s more per `H`, and any other cartridge can ignore it.
 
 Baked fusion lanes and branch runs do not apply to cartridge rows, which would make BASIC slower. To offset that, it does its set-up between lines, after the last character is drawn rather than after the next ENTER, compares with immediates in one row, and tests `?` first.
 
@@ -236,7 +236,7 @@ CORE and CONSOLE blueprints are byte for byte the same with this cartridge, with
 | CONSOLE | 21,291, 494,450 | 21,471, 495,741 | 28,547 |
 | CARTRIDGE | 182, 4,735 | 1,812, 61,489 | 462,799 |
 
-The fixed seam costs 112 links instead of 62, and 7 more on the CONSOLE seam. The console's own growth is the larger mirror and the second mode bit. `--layout cube` makes 344,593, 475,845 and 54,723.
+The fixed seam has 112 links instead of 56, and the CONSOLE seam 53 instead of 51. The console's own growth is the larger mirror and the second mode bit. `--layout cube` makes 344,593, 475,845 and 54,723.
 
 | CPU timers | Updates per cycle | BASIC (14 commands) | Snake | Pi |
 |---:|---:|---|---|---|
