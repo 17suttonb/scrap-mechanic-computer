@@ -1,0 +1,2036 @@
+{
+  "reset": {
+    "mode": "in",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1,
+        "editorId": 1,
+        "label": "reset(0)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": -9,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 0,
+        "panel_column": 0,
+        "label_text": "IN RESET 9S",
+        "label_sign_ids": [
+          1427
+        ]
+      }
+    ]
+  },
+  "line_q": {
+    "mode": "in",
+    "width": 32,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 2,
+        "editorId": 2,
+        "label": "line_q(0)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 1,
+        "controllerId": 3,
+        "editorId": 3,
+        "label": "line_q(1)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 2,
+        "controllerId": 4,
+        "editorId": 4,
+        "label": "line_q(2)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 3,
+        "controllerId": 5,
+        "editorId": 5,
+        "label": "line_q(3)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 4,
+        "controllerId": 6,
+        "editorId": 6,
+        "label": "line_q(4)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 5,
+        "controllerId": 7,
+        "editorId": 7,
+        "label": "line_q(5)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 6,
+        "controllerId": 8,
+        "editorId": 8,
+        "label": "line_q(6)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 7,
+        "controllerId": 9,
+        "editorId": 9,
+        "label": "line_q(7)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 8,
+        "controllerId": 10,
+        "editorId": 10,
+        "label": "line_q(8)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 9,
+        "controllerId": 11,
+        "editorId": 11,
+        "label": "line_q(9)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 10,
+        "controllerId": 12,
+        "editorId": 12,
+        "label": "line_q(10)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 11,
+        "controllerId": 13,
+        "editorId": 13,
+        "label": "line_q(11)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 1,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 12,
+        "controllerId": 14,
+        "editorId": 14,
+        "label": "line_q(12)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 13,
+        "controllerId": 15,
+        "editorId": 15,
+        "label": "line_q(13)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 14,
+        "controllerId": 16,
+        "editorId": 16,
+        "label": "line_q(14)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 15,
+        "controllerId": 17,
+        "editorId": 17,
+        "label": "line_q(15)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 16,
+        "controllerId": 18,
+        "editorId": 18,
+        "label": "line_q(16)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 17,
+        "controllerId": 19,
+        "editorId": 19,
+        "label": "line_q(17)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 18,
+        "controllerId": 20,
+        "editorId": 20,
+        "label": "line_q(18)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 19,
+        "controllerId": 21,
+        "editorId": 21,
+        "label": "line_q(19)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 20,
+        "controllerId": 22,
+        "editorId": 22,
+        "label": "line_q(20)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 21,
+        "controllerId": 23,
+        "editorId": 23,
+        "label": "line_q(21)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 22,
+        "controllerId": 24,
+        "editorId": 24,
+        "label": "line_q(22)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 23,
+        "controllerId": 25,
+        "editorId": 25,
+        "label": "line_q(23)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 2,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 24,
+        "controllerId": 26,
+        "editorId": 26,
+        "label": "line_q(24)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 25,
+        "controllerId": 27,
+        "editorId": 27,
+        "label": "line_q(25)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 26,
+        "controllerId": 28,
+        "editorId": 28,
+        "label": "line_q(26)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 27,
+        "controllerId": 29,
+        "editorId": 29,
+        "label": "line_q(27)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 28,
+        "controllerId": 30,
+        "editorId": 30,
+        "label": "line_q(28)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 29,
+        "controllerId": 31,
+        "editorId": 31,
+        "label": "line_q(29)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 30,
+        "controllerId": 32,
+        "editorId": 32,
+        "label": "line_q(30)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 31,
+        "controllerId": 33,
+        "editorId": 33,
+        "label": "line_q(31)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "marker_q": {
+    "mode": "in",
+    "width": 8,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 34,
+        "editorId": 34,
+        "label": "marker_q(0)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 1,
+        "controllerId": 35,
+        "editorId": 35,
+        "label": "marker_q(1)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 2,
+        "controllerId": 36,
+        "editorId": 36,
+        "label": "marker_q(2)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 3,
+        "controllerId": 37,
+        "editorId": 37,
+        "label": "marker_q(3)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 3,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 4,
+        "controllerId": 38,
+        "editorId": 38,
+        "label": "marker_q(4)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 5,
+        "controllerId": 39,
+        "editorId": 39,
+        "label": "marker_q(5)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 6,
+        "controllerId": 40,
+        "editorId": 40,
+        "label": "marker_q(6)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 7,
+        "controllerId": 41,
+        "editorId": 41,
+        "label": "marker_q(7)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "seed_q": {
+    "mode": "in",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 42,
+        "editorId": 42,
+        "label": "seed_q(0)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "parity_q": {
+    "mode": "in",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 43,
+        "editorId": 43,
+        "label": "parity_q(0)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "commit_q": {
+    "mode": "in",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 44,
+        "editorId": 44,
+        "label": "commit_q(0)",
+        "kind": "INPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 4,
+          "z": 1
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "line_d": {
+    "mode": "out",
+    "width": 32,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1130,
+        "editorId": 1427,
+        "label": "line_d(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 1,
+        "controllerId": 1131,
+        "editorId": 1428,
+        "label": "line_d(1)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 2,
+        "controllerId": 1132,
+        "editorId": 1429,
+        "label": "line_d(2)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 3,
+        "controllerId": 1133,
+        "editorId": 1430,
+        "label": "line_d(3)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 4,
+        "controllerId": 1134,
+        "editorId": 1431,
+        "label": "line_d(4)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 5,
+        "controllerId": 1135,
+        "editorId": 1432,
+        "label": "line_d(5)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 6,
+        "controllerId": 1136,
+        "editorId": 1433,
+        "label": "line_d(6)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 7,
+        "controllerId": 1137,
+        "editorId": 1434,
+        "label": "line_d(7)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 8,
+        "controllerId": 1138,
+        "editorId": 1435,
+        "label": "line_d(8)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 9,
+        "controllerId": 1139,
+        "editorId": 1436,
+        "label": "line_d(9)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 10,
+        "controllerId": 1140,
+        "editorId": 1437,
+        "label": "line_d(10)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 11,
+        "controllerId": 1141,
+        "editorId": 1438,
+        "label": "line_d(11)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 11,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 12,
+        "controllerId": 1142,
+        "editorId": 1439,
+        "label": "line_d(12)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 13,
+        "controllerId": 1143,
+        "editorId": 1440,
+        "label": "line_d(13)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 14,
+        "controllerId": 1144,
+        "editorId": 1441,
+        "label": "line_d(14)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 15,
+        "controllerId": 1145,
+        "editorId": 1442,
+        "label": "line_d(15)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 16,
+        "controllerId": 1146,
+        "editorId": 1443,
+        "label": "line_d(16)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 17,
+        "controllerId": 1147,
+        "editorId": 1444,
+        "label": "line_d(17)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 18,
+        "controllerId": 1148,
+        "editorId": 1445,
+        "label": "line_d(18)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 19,
+        "controllerId": 1149,
+        "editorId": 1446,
+        "label": "line_d(19)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 20,
+        "controllerId": 1150,
+        "editorId": 1447,
+        "label": "line_d(20)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 21,
+        "controllerId": 1151,
+        "editorId": 1448,
+        "label": "line_d(21)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 22,
+        "controllerId": 1152,
+        "editorId": 1449,
+        "label": "line_d(22)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 23,
+        "controllerId": 1153,
+        "editorId": 1450,
+        "label": "line_d(23)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 12,
+          "z": 8
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 24,
+        "controllerId": 1154,
+        "editorId": 1451,
+        "label": "line_d(24)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 25,
+        "controllerId": 1155,
+        "editorId": 1452,
+        "label": "line_d(25)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 26,
+        "controllerId": 1156,
+        "editorId": 1453,
+        "label": "line_d(26)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 27,
+        "controllerId": 1157,
+        "editorId": 1454,
+        "label": "line_d(27)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 28,
+        "controllerId": 1158,
+        "editorId": 1455,
+        "label": "line_d(28)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 29,
+        "controllerId": 1159,
+        "editorId": 1456,
+        "label": "line_d(29)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 30,
+        "controllerId": 1160,
+        "editorId": 1457,
+        "label": "line_d(30)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 31,
+        "controllerId": 1161,
+        "editorId": 1458,
+        "label": "line_d(31)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "marker_d": {
+    "mode": "out",
+    "width": 8,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1162,
+        "editorId": 1459,
+        "label": "marker_d(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 1,
+        "controllerId": 1163,
+        "editorId": 1460,
+        "label": "marker_d(1)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 2,
+        "controllerId": 1164,
+        "editorId": 1461,
+        "label": "marker_d(2)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 3,
+        "controllerId": 1165,
+        "editorId": 1462,
+        "label": "marker_d(3)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 1,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 4,
+        "controllerId": 1166,
+        "editorId": 1463,
+        "label": "marker_d(4)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 5,
+        "controllerId": 1167,
+        "editorId": 1464,
+        "label": "marker_d(5)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 6,
+        "controllerId": 1168,
+        "editorId": 1465,
+        "label": "marker_d(6)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 7,
+        "controllerId": 1169,
+        "editorId": 1466,
+        "label": "marker_d(7)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "parity_d": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1170,
+        "editorId": 1467,
+        "label": "parity_d(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "commit_d": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1171,
+        "editorId": 1468,
+        "label": "commit_d(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "ready": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1172,
+        "editorId": 1469,
+        "label": "ready(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 0,
+        "label_text": "OUT ready",
+        "label_sign_ids": [
+          1428
+        ]
+      }
+    ]
+  },
+  "done": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1173,
+        "editorId": 1470,
+        "label": "done(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 0,
+        "label_text": "OUT done",
+        "label_sign_ids": [
+          1429
+        ]
+      }
+    ]
+  },
+  "passed": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1174,
+        "editorId": 1471,
+        "label": "passed(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 17,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 0,
+        "label_text": "OUT passed",
+        "label_sign_ids": [
+          1430
+        ]
+      }
+    ]
+  },
+  "failed": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1175,
+        "editorId": 1472,
+        "label": "failed(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 24,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 0,
+        "label_text": "OUT failed",
+        "label_sign_ids": [
+          1431
+        ]
+      }
+    ]
+  },
+  "capture_active": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1176,
+        "editorId": 1473,
+        "label": "capture_active(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "commit_active": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1177,
+        "editorId": 1474,
+        "label": "commit_active(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "progress": {
+    "mode": "out",
+    "width": 5,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1178,
+        "editorId": 1475,
+        "label": "progress(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 29,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 0,
+        "label_text": "OUT progress 0-4",
+        "label_sign_ids": [
+          1432
+        ]
+      },
+      {
+        "index": 1,
+        "controllerId": 1179,
+        "editorId": 1476,
+        "label": "progress(1)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 31,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 1,
+        "label_text": "OUT progress 0-4",
+        "label_sign_ids": [
+          1432
+        ]
+      },
+      {
+        "index": 2,
+        "controllerId": 1180,
+        "editorId": 1477,
+        "label": "progress(2)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 33,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 2,
+        "label_text": "OUT progress 0-4",
+        "label_sign_ids": [
+          1432
+        ]
+      },
+      {
+        "index": 3,
+        "controllerId": 1181,
+        "editorId": 1478,
+        "label": "progress(3)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 35,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 3,
+        "label_text": "OUT progress 0-4",
+        "label_sign_ids": [
+          1432
+        ]
+      },
+      {
+        "index": 4,
+        "controllerId": 1182,
+        "editorId": 1479,
+        "label": "progress(4)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 37,
+          "y": -1,
+          "z": 1
+        },
+        "region": "io_panel",
+        "panel_row": 2,
+        "panel_column": 4,
+        "label_text": "OUT progress 0-4",
+        "label_sign_ids": [
+          1432
+        ]
+      }
+    ]
+  },
+  "request_debug": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1183,
+        "editorId": 1480,
+        "label": "request_debug(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "ack_debug": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1184,
+        "editorId": 1481,
+        "label": "ack_debug(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "busy_debug": {
+    "mode": "out",
+    "width": 1,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1185,
+        "editorId": 1482,
+        "label": "busy_debug(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  },
+  "response_debug": {
+    "mode": "out",
+    "width": 32,
+    "bits": [
+      {
+        "index": 0,
+        "controllerId": 1186,
+        "editorId": 1483,
+        "label": "response_debug(0)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 2,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 1,
+        "controllerId": 1187,
+        "editorId": 1484,
+        "label": "response_debug(1)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 2,
+        "controllerId": 1188,
+        "editorId": 1485,
+        "label": "response_debug(2)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 3,
+        "controllerId": 1189,
+        "editorId": 1486,
+        "label": "response_debug(3)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 4,
+        "controllerId": 1190,
+        "editorId": 1487,
+        "label": "response_debug(4)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 5,
+        "controllerId": 1191,
+        "editorId": 1488,
+        "label": "response_debug(5)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 6,
+        "controllerId": 1192,
+        "editorId": 1489,
+        "label": "response_debug(6)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 7,
+        "controllerId": 1193,
+        "editorId": 1490,
+        "label": "response_debug(7)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 8,
+        "controllerId": 1194,
+        "editorId": 1491,
+        "label": "response_debug(8)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 9,
+        "controllerId": 1195,
+        "editorId": 1492,
+        "label": "response_debug(9)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 10,
+        "controllerId": 1196,
+        "editorId": 1493,
+        "label": "response_debug(10)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 11,
+        "controllerId": 1197,
+        "editorId": 1494,
+        "label": "response_debug(11)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 12,
+        "controllerId": 1198,
+        "editorId": 1495,
+        "label": "response_debug(12)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 3,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 13,
+        "controllerId": 1199,
+        "editorId": 1496,
+        "label": "response_debug(13)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 14,
+        "controllerId": 1200,
+        "editorId": 1497,
+        "label": "response_debug(14)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 15,
+        "controllerId": 1201,
+        "editorId": 1498,
+        "label": "response_debug(15)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 16,
+        "controllerId": 1202,
+        "editorId": 1499,
+        "label": "response_debug(16)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 17,
+        "controllerId": 1203,
+        "editorId": 1500,
+        "label": "response_debug(17)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 18,
+        "controllerId": 1204,
+        "editorId": 1501,
+        "label": "response_debug(18)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 19,
+        "controllerId": 1205,
+        "editorId": 1502,
+        "label": "response_debug(19)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 20,
+        "controllerId": 1206,
+        "editorId": 1503,
+        "label": "response_debug(20)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 7,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 21,
+        "controllerId": 1207,
+        "editorId": 1504,
+        "label": "response_debug(21)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 8,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 22,
+        "controllerId": 1208,
+        "editorId": 1505,
+        "label": "response_debug(22)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 9,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 23,
+        "controllerId": 1209,
+        "editorId": 1506,
+        "label": "response_debug(23)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 10,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 24,
+        "controllerId": 1210,
+        "editorId": 1507,
+        "label": "response_debug(24)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 11,
+          "y": 4,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 25,
+        "controllerId": 1211,
+        "editorId": 1508,
+        "label": "response_debug(25)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 0,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 26,
+        "controllerId": 1212,
+        "editorId": 1509,
+        "label": "response_debug(26)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 1,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 27,
+        "controllerId": 1213,
+        "editorId": 1510,
+        "label": "response_debug(27)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 2,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 28,
+        "controllerId": 1214,
+        "editorId": 1511,
+        "label": "response_debug(28)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 3,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 29,
+        "controllerId": 1215,
+        "editorId": 1512,
+        "label": "response_debug(29)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 4,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 30,
+        "controllerId": 1216,
+        "editorId": 1513,
+        "label": "response_debug(30)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 5,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      },
+      {
+        "index": 31,
+        "controllerId": 1217,
+        "editorId": 1514,
+        "label": "response_debug(31)",
+        "kind": "OUTPUT",
+        "physicalOnly": false,
+        "position": {
+          "x": 6,
+          "y": 5,
+          "z": 9
+        },
+        "region": "logic_cube"
+      }
+    ]
+  }
+}

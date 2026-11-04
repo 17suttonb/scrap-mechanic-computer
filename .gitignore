@@ -28,3 +28,7 @@ desktop.ini
 *.log
 *.tmp
 .claude/
+
+# Logic-Block-Simulator: bundled runtime needs its .pyd extension modules; ignore run output
+!Logic-Block-Simulator/runtime/**/*.pyd
+Logic-Block-Simulator/results/
