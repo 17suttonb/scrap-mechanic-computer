@@ -1,4 +1,4 @@
-{"title": "PROGRAMS", "programs": [
+{"title": "MENU", "programs": [
   {"name": "TBASIC", "source": "basic.s", "mode": "console", "colour": "35C759"},
   {"name": "SNAKE", "binary": "snake.bin", "symbols": "snake.groups.json", "mode": "board", "colour": "E0559B"},
   {"name": "PI", "source": "pi.s", "mode": "tap", "colour": "19C3D6"}

@@ -331,13 +331,13 @@ def restart(g):
     reset()
     assert g.m.menu_ready('2'), g.m.text()
     g.m.start_program('2')
-    sim.advance(1400)
+    sim.advance(2400)
     board = g.m.text()
     print('after RESET', menu)
     print(f'?2+3 in {seconds:.2f} s', answer)
     print('second game', board)
     cells = ''.join(board[:7])
-    return 'PROGRAMS' in menu[0] and '5' in ''.join(answer) and cells.count('Q') == 1 and cells.count('+') == 1 and cells.count('O') <= 2 and board[7].startswith('00 SCORE')
+    return menu[0] == 'MENU' and '5' in ''.join(answer) and cells.count('Q') == 1 and cells.count('+') == 1 and cells.count('O') <= 2 and board[7].startswith('00 SCORE')
 
 
 def main():

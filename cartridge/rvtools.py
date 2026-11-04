@@ -22,6 +22,21 @@ def elf_text(path):
     return base, bytes(image)
 
 
+def true_pi(places):
+    """Decimal digits of pi after the point, with exact big integers and Machin's formula."""
+    scale = 10 ** (places + 10)
+
+    def atan_inverse(x):
+        total, term, n, sign = 0, scale // x, 1, 1
+        while term:
+            total += sign * (term // n)
+            term //= x * x
+            n += 2
+            sign = -sign
+        return total
+    return str((16 * atan_inverse(5) - 4 * atan_inverse(239)) // 10 ** 10)[1:]
+
+
 def elf_symbols(path):
     """{name: address} of the symbols in an ELF file."""
     d = open(path, 'rb').read()

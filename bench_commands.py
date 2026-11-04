@@ -40,6 +40,12 @@ def load_modules(folder):
         for l in json.loads((f / 'link-map.json').read_text(encoding='utf-8'))['links']:
             links[l['source'], l['receiver']] = l
     by_id = {p['controller']['id']: p for p in childs if 'controller' in p}
+    # a CORE built with no cartridge does not list the seam in its link map, but may have one plugged in later
+    for f in folders:
+        if (f / 'seam-map.json').exists():
+            for l in json.loads((f / 'seam-map.json').read_text(encoding='utf-8'))['links']:
+                if l['source'] in by_id and l['receiver'] in by_id:
+                    links[l['source'], l['receiver']] = l
     for source, receiver in links:
         c = by_id[source]['controller']
         c['controllers'] = (c.get('controllers') or []) + [dict(id=receiver)]

@@ -16,6 +16,7 @@ assembler's branches, jumps and calls are. These lines name things for the cartr
     ; @data label 1 2 "TEXT"              bytes in the data port, with `label` their address
     %next                                 read the next character of the line (lbu x4,0(x9); addi x9,x9,1)
     %is 65                                the character read must be 65 (addi x6,x4,-65; bne x6,x0,error)
+    %spaces                               skip any spaces (one row if there are none, otherwise call `spaces`)
 
 A `binary` is a flat RV32E image, with `symbols` a JSON list of [word offset, key, title] where its parts start.
 With --blueprint the cartridge is also built as a CARTRIDGE blueprint, under that folder.
@@ -35,13 +36,13 @@ from accelerated import cartridge as cart  # noqa: E402
 from accelerated.districts import shade  # noqa: E402
 from accelerated.isa import assemble  # noqa: E402
 
-MACROS = {'next': ['lbu x4,0(x9)', 'addi x9,x9,1'], 'is': ['addi x6,x4,-{0}', 'bne x6,x0,error']}
+MACROS = {'next': ['lbu x4,0(x9)', 'addi x9,x9,1'], 'is': ['addi x6,x4,-{0}', 'bne x6,x0,error'], 'spaces': ['addi x6,x4,-32', 'bne x6,x0,no_spaces_{n}', 'jal x12,spaces', 'no_spaces_{n}:']}
 
 
 def preprocess(text, data, symbols):
     """Expand macros and take out the directives: (assembly with group labels, {group label: (key, title)})."""
     out, marks = [], {}
-    for line in text.splitlines():
+    for number, line in enumerate(text.splitlines()):
         m = re.match(r'\s*;\s*@group\s+(\w+)\s*(.*)$', line)
         if m:
             label = f'group_mark_{len(marks)}'
@@ -56,7 +57,7 @@ def preprocess(text, data, symbols):
             continue
         m = re.match(r'\s*%(\w+)\s*(.*)$', line)
         if m:
-            out += ['    ' + row.format(*m[2].split()) for row in MACROS[m[1]]]
+            out += ['    ' + row.format(*m[2].split(), n=number) for row in MACROS[m[1]]]
             continue
         out.append(line)
     return '\n'.join(out) + '\n', marks

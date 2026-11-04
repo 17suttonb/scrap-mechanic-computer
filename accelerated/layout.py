@@ -338,6 +338,8 @@ def build(root, flat=False, solid=False, districts=False, total=2, attached=Fals
     row = dict(r, folder=str(folder.resolve()), blueprint_sha256=hashlib.sha256(data).hexdigest(), benchmark_root=str((root / 'joined-validation').resolve()), native_validation='Private assembly simulation; separately import modules', joined_packet_estimate=len(lz4.block.compress(data, store_size=False)) + 13)
     save(root / 'joined.json', row)
     save(root / 'seam.json', dict(links=cart_links))
+    if cart_links:
+        save(Path(module_records['cpu']['folder']) / 'seam-map.json', dict(links=cart_links))
     save(root / 'modules.json', dict(modules=module_records, links=links, joined=row, total_headroom=sum((m['headroom_bytes'] for m in module_records.values())), electrical_graph_identical_to_prototype=True, touching_rows=True, each_bridge_is_unique_touching_pair=True, structural_paint_cues=False))
     print('JOINED', row['joined_packet_estimate'], link_count, 'console bridges,', len(cart_links), 'cartridge bridges; collision-free supported assembly', flush=True)
     return row

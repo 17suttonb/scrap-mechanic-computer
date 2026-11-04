@@ -2,7 +2,9 @@
 ; Variables 0..25; line count 28; execution budget 29; directory 32..63.
 ; Directory word: key bits 0..6, length bits 7..11, physical slot bits 12..15.
 ; The memory map is the cartridge one (docs/cartridge.md): RAM at 0, text at 512, the input stream at 256.
-; `@group` lines name the program's parts for the cartridge's layout; %next and %is are make_cartridge.py's macros.
+; `@group` lines name the program's parts for the cartridge's layout; %next, %is and %spaces are make_cartridge.py's
+; macros. Between lines x13 = 10 and x14 = 26, and everything the common commands start from is set up then, after
+; the last character has been drawn, rather than after the next ENTER.
 ; @group basic_start BASIC START
     sb x0,-250(x0)              ; the key that chose this program moved the input index
     jal x1,banner
@@ -25,18 +27,23 @@
     sbi 240,63
 ; @group basic_direct BASIC DIRECT
 wait_line:
-    addi x12,x0,10
-    addi x13,x0,26
+    addi x13,x0,10
+    addi x14,x0,26
+    addi x9,x0,256
+    addi x10,x0,-1
+    addi x15,x0,0
+    addi x5,x0,43
+    addi x7,x0,-1
 wait_ready:
     lb x1,-240(x0)
     bge x1,x0,wait_ready
     lbu x1,-236(x0)
-    addi x6,x1,-48
-    bltu x6,x12,direct_numbered
     addi x6,x1,-63
-    beq x6,x0,direct_print_expression
+    beq x6,x0,direct_term_read
+    addi x6,x1,-48
+    bltu x6,x13,direct_numbered
     addi x6,x1,-65
-    bgeu x6,x13,direct_general_fresh
+    bgeu x6,x14,direct_general_fresh
     mv x4,x1
     mv x7,x6
 direct_letter_next:
@@ -44,22 +51,16 @@ direct_letter_next:
     addi x6,x1,-32
     beq x6,x0,direct_letter_next
     addi x6,x1,-61
-    beq x6,x0,direct_expression_start
+    beq x6,x0,direct_term_read
 direct_keyword:
     mv x3,x4
     mv x4,x1
-    addi x9,x0,256
-    addi x10,x0,-1
-    addi x13,x0,10
     j keyword_dispatch_loaded
 direct_general_fresh:
     mv x4,x1
-    addi x9,x0,256
-    addi x10,x0,-1
-    addi x13,x0,10
 ; @group basic_statement BASIC STATEMENT
 statement:
-    jal x12,spaces
+    %spaces
     beq x4,x0,finished
     addi x6,x4,-48
     bltu x6,x13,numbered_line
@@ -71,7 +72,7 @@ statement:
     mv x3,x4
     mv x7,x6
     %next
-    jal x12,spaces
+    %spaces
     addi x6,x4,-61
     beq x6,x0,assignment_equal
 keyword_dispatch_loaded:
@@ -102,13 +103,14 @@ assignment:
     mv x7,x6
     %next
 assignment_equal:
-    jal x12,spaces
+    %spaces
     addi x6,x4,-61
     bne x6,x0,error
     bge x10,x0,assignment_general_value
-    addi x12,x0,10
-    addi x13,x0,26
-    j direct_expression_start
+    addi x14,x0,26
+    addi x15,x0,0
+    addi x5,x0,43
+    j direct_term_read
 assignment_general_value:
     %next
     jal x11,expression
@@ -141,7 +143,7 @@ letter_l:
     %next
     %is 84
     %next
-    jal x12,spaces
+    %spaces
     bne x4,x0,error
     bge x10,x0,error
     addi x11,x0,32
@@ -167,7 +169,7 @@ let_command:
     %next
     %is 84
     %next
-    jal x12,spaces
+    %spaces
     j assignment
 letter_r:
     addi x6,x4,-69
@@ -176,7 +178,7 @@ letter_r:
     %next
     %is 78
     %next
-    jal x12,spaces
+    %spaces
     bne x4,x0,error
     bge x10,x0,error
     sbi 255,29
@@ -192,7 +194,7 @@ new_command:
     %next
     %is 87
     %next
-    jal x12,spaces
+    %spaces
     bne x4,x0,error
     bge x10,x0,error
     ; every slot stays in the directory, in whatever order deletes left them: only the keys go
@@ -262,7 +264,7 @@ end_command:
     %next
     %is 68
     %next
-    jal x12,spaces
+    %spaces
     bne x4,x0,error
     j prompt
 help_command:
@@ -274,7 +276,7 @@ help_command:
     %next
     %is 80
     %next
-    jal x12,spaces
+    %spaces
     bne x4,x0,error
 help_emit:
     sbi 1,-252
@@ -289,7 +291,7 @@ letter_c:
     %next
     %is 82
     %next
-    jal x12,spaces
+    %spaces
     bne x4,x0,error
 clear:
     sw x0,0(x0)
@@ -521,17 +523,12 @@ operator_space:
 expression_done:
     jalr x0,0(x11)
 ; @group basic_fast BASIC FAST PATH
-; Fast direct-mode expression path. x12 holds 10 and x13 holds 26; x7 is the variable's address, or -1 to print.
-direct_print_expression:
-    addi x7,x0,-1
-direct_expression_start:
-    addi x15,x0,0
-    addi x5,x0,43
+; Fast direct-mode expression path. x7 is the variable's address, or -1 to print.
 direct_term_read:
     lbu x1,-236(x0)
 direct_term_loaded:
     addi x3,x1,-48
-    bltu x3,x12,direct_digit_read
+    bltu x3,x13,direct_digit_read
     addi x6,x1,-32
     beq x6,x0,direct_term_read
     addi x6,x1,-45
@@ -542,22 +539,24 @@ direct_term_loaded:
 direct_digit_read:
     lbu x1,-236(x0)
     addi x4,x1,-48
-    bltu x4,x12,direct_more_digits
+    bltu x4,x13,direct_more_digits
 direct_apply_term:
     addi x6,x5,-45
     beq x6,x0,direct_subtract_term
     add x15,x15,x3
 direct_after_term:
 direct_operator_ready:
+    beq x1,x0,direct_line_end
     mv x5,x1
     addi x6,x1,-43
     beq x6,x0,direct_term_read
     addi x6,x1,-45
     beq x6,x0,direct_term_read
-    bne x1,x0,direct_operator_tail
+    j direct_operator_tail
+direct_line_end:
     bge x7,x0,direct_assign_result
     sb x15,-249(x0)
-    j wait_ready
+    j wait_line
 direct_assign_result:
     sb x15,0(x7)
     j prompt
@@ -587,11 +586,10 @@ direct_more_digits:
     j direct_digit_read
 direct_variable_term:
     addi x6,x1,-65
-    bgeu x6,x13,error
+    bgeu x6,x14,error
     lbu x3,0(x6)
     lbu x1,-236(x0)
     j direct_apply_term
 direct_numbered:
     mv x12,x6
-    addi x13,x0,10
     j line_number_read

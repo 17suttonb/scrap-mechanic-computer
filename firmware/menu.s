@@ -5,7 +5,8 @@
 ; 12 and 13; each following row is one program's text, with its mode and its entry address in hidden columns 12..14.
 ; A key picks a row: 1 is the first program. It may be tapped before the page has finished drawing.
 ;
-; No RAM is touched, so a program starts with all of it clear, as RESET left it.
+; No RAM is touched, so a program starts with all of it clear, as RESET left it. The screen blanks on a change of
+; mode, so going through console mode blanks it for a program in the mode the menu runs in.
     addi x1,x0,1
     sb x1,-248(x0)          ; single keys; the screen blanks
     addi x9,x0,1024         ; the row being read
@@ -58,6 +59,7 @@ read_key:
     add x2,x2,x2
     add x2,x2,x2
     add x2,x2,x4
+    sb x0,-248(x0)
     sb x1,-248(x0)
     jalr x0,0(x2)
 not_listed:

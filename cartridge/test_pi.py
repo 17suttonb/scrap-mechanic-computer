@@ -8,23 +8,9 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from host import Computer, cart  # noqa: E402
+from rvtools import true_pi  # noqa: E402
 
 DIGITS = 60
-
-
-def true_pi(places):
-    """Decimal digits of pi after the point, with exact big integers and Machin's formula."""
-    scale = 10 ** (places + 10)
-
-    def atan_inverse(x):
-        total, term, n, sign = 0, scale // x, 1, 1
-        while term:
-            total += sign * (term // n)
-            term //= x * x
-            n += 2
-            sign = -sign
-        return total
-    return str((16 * atan_inverse(5) - 4 * atan_inverse(239)) // 10 ** 10)[1:]
 
 
 def entry_of(image, name):
