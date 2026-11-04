@@ -42,7 +42,7 @@ def load_modules(folder):
     for source, receiver in links:
         c = by_id[source]['controller']
         c['controllers'] = (c.get('controllers') or []) + [dict(id=receiver)]
-    names = {l['name']: l['source'] for l in links.values()}
+    names = {l['name']: l.get('switch', l['source']) for l in links.values()}
     return dict(bodies=[dict(childs=childs)], version=4), names['RUN'], names['RESET']
 
 

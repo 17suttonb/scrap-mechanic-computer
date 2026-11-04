@@ -44,3 +44,10 @@ Host simulation is slower because the CPU clock runs about 1.5 times as often pe
 | 2026-11-04 | 834ad2f | `--beta --flat` with cartridge, C33, 8 rows | 848f8f236b07 | 20000 | Python | 31.51 | 634.7 | -5.3% |
 | 2026-11-04 | f14e496 | `--beta` with cartridge, C33, 4 rows | 7a8aa3de5076 | 20000 | Rust | 0.106 | 187910 | 281 times the Python speed |
 | 2026-11-04 | 834ad2f | `--beta --flat` with cartridge, C33, 8 rows | 848f8f236b07 | 20000 | Rust | 0.098 | 204351 | 322 times the Python speed |
+
+Score, result lines, solid console and console switches (branch `snake-score`), same idle workload, no halt or fault. Moves stay at 4.95 s on average and load at 21.05 s.
+
+| Date | Commit | Variant | Joined blueprint sha256 (prefix) | Ticks | Simulator | Wall (s) | Ticks/sec | vs. previous |
+|---|---|---|---|---|---|---|---|---|
+| 2026-11-04 | snake-score | `--beta --flat` with cartridge, C33, 8 rows | b98d2aef2fa5 | 20000 | Python | 31.54 | 634.0 | -0.1% vs 634.7 |
+| 2026-11-04 | snake-score | `--beta --flat` with cartridge, C33, 8 rows | b98d2aef2fa5 | 20000 | Rust | 0.099 | 202420 | 319 times the Python speed |

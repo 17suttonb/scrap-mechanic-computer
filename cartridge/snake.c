@@ -10,8 +10,12 @@
  *           column = addr & 15.  The screen shows 0 as '.', 2 as '+', 4 as 'Q' and else 'O'.
  *   -240    bit 7 set = a key is waiting.  -236 reads that key and takes it.
  *
- * Before jumping here the firmware has cleared the board and set wall bytes in columns 12 and 15
- * of every row, and the console has blanked the screen and stopped echoing keys.
+ *   13, 14  The score, as ASCII digits, shown directly on the line below the board.
+ *   29      A store of LOST or WON here writes the result line.  It shows nothing on the board.
+ *
+ * Before jumping here the firmware has cleared the board, set wall bytes in columns 12 and 15 and
+ * '0' in columns 13 and 14 of every row, so food never lands off the board.  The console has blanked
+ * the screen, drawn "SCORE 00" and stopped echoing keys.
  *
  * A body cell holds the step to the next body cell, so moving the head is one add and the tail
  * follows by adding what it reads.  The head cell holds HEAD and receives the step as the head
@@ -21,8 +25,10 @@
  * and right hit a wall byte, which takes the slow path: the head moves to the other side and the
  * cell it left gets a step of 11 instead of 1, so the tail crosses the same way with no extra code.
  *
- * Only the snake's own body ends the game, including the cell the tail is about to leave.  The
- * program then spins on one jump forever with the last board on the screen; see docs/cartridge.md.
+ * Only the snake's own body loses the game, including the cell the tail is about to leave.  Eating
+ * the last food wins it: the snake starts 2 long, so that is food number 46, when it fills all 48
+ * cells.  Either way the program writes the result line and spins on one jump forever, with the last
+ * board and the score on the screen; see docs/cartridge.md.
  *
  * Steer with a single tap of W, A, S or D.  No ENTER.  RESET returns to BASIC.
  * Registers x1, x8 and x9 are left alone so the function needs no stack.
@@ -32,7 +38,13 @@
 #define STATUS (*(volatile signed char *)-240)
 #define KEY (*(volatile unsigned char *)-236)
 
+#define TENS CELLS[13]
+#define ONES CELLS[14]
+#define RESULT CELLS[29]
+
 #define WALL 3
+#define LOST 5
+#define WON 6
 
 /* Keeps the compiler from moving rarely used constants out of the loop, which would need a stack. */
 #define LOCAL(x) __asm__ volatile("" : "+r"(x))
@@ -72,6 +84,25 @@ void __attribute__((noreturn)) _start(int head, int tail, int step, int food, in
                     BOARD[head] = head_mark;
                 }
                 if (cell == food_mark) {
+                    int ones = ONES + 1;
+                    near = '9';
+                    LOCAL(near);
+                    if (ones > near) {
+                        TENS = TENS + 1;
+                        ones = '0';
+                        LOCAL(ones);
+                    }
+                    ONES = ones;
+                    near = '6';
+                    LOCAL(near);
+                    if (ones == near) {
+                        near = '4';
+                        LOCAL(near);
+                        if (TENS == near) {
+                            near = WON;
+                            goto over;
+                        }
+                    }
                     do {
                         food = (food + 17) & 63;
                     } while (BOARD[food] != 0);
@@ -79,6 +110,10 @@ void __attribute__((noreturn)) _start(int head, int tail, int step, int food, in
                     continue;
                 }
                 if (cell != 0) {
+                    near = LOST;
+over:
+                    LOCAL(near);
+                    RESULT = near;
                     for (;;) { }
                 }
             }

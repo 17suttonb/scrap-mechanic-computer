@@ -26,6 +26,10 @@ from accelerated.hdl import compile_source
 BASE = 0x800                    # byte address of the first cartridge instruction
 WORDS = 512                     # cartridge window: 512 words, PC bits 11..2 with bit 11 set
 ADDRESS_BITS = 10
+# below the board: (row, column, text) of the score, and of the result for each value stored to end the game
+SCORE_LINE = (5, 2, 'SCORE 00')
+SCORE_ADDRESS = 13              # tens, then ones: bytes in hidden columns, so not on the board
+RESULTS = {5: (7, 2, 'YOU LOST'), 6: (7, 2, 'YOU WON')}
 
 # field name -> width, in the order the interface is documented and laid out
 FIELDS = dict(sa=15, sb=15, sw=15, imm=12, target=10, f3=3, aluop=3, legal=1, load=1, store=1, branch=1, jal=1, jalr=1, immediate=1, compare=1, static=1, key=1, nokey=1)
@@ -207,6 +211,9 @@ def console_source(text):
       readable at index 0, and reading it clears it, so no acknowledge transaction is needed.
     * A CPU store to the board writes one screen cell directly (row = address / 16, column =
       address & 15, columns 12..15 are not shown), with 0 shown as '.', 2 as '+', 4 as 'Q', else 'O'.
+    * On a screen tall enough for it, entry also draws SCORE_LINE below the board. Stores to the two
+      SCORE_ADDRESS bytes, which are not on the board, show as digits on it, and a store of a value
+      in RESULTS writes that result line in one go.
     """
     def once(old, new):
         nonlocal text
@@ -214,7 +221,7 @@ def console_source(text):
         text = text.replace(old, new)
 
     once('port(capture,commit,reset,faulted,key_settled,key_available:in bit;', 'port(capture,commit,reset,faulted,key_settled,key_available,screen_write,screen_late,cart_mode:in bit;screen_address:in bit_vector(5 downto 0);screen_data:in bit_vector(7 downto 0);')
-    decl = '  signal raw_seen,raw_seen_stage,raw_enter,raw_clear,taken_seen,taken_stage,blank_stage,key_shown,mirror_zero,mirror_food,mirror_head:bit;\n  signal mirror_code:bit_vector(5 downto 0);signal mirror_select,mirror_write:bit_vector(47 downto 0);\n'
+    decl = '  signal raw_seen,raw_seen_stage,raw_enter,raw_clear,taken_seen,taken_stage,taken_old,taken_old_stage,blank_stage,key_shown,mirror_zero,mirror_food,mirror_head:bit;\n  signal mirror_code:bit_vector(5 downto 0);signal mirror_select,mirror_write:bit_vector(47 downto 0);\n'
     text = text.replace('begin\n', decl + 'begin\n', 1)
     text = text.replace('key_print or cpu_print', 'key_shown or cpu_print')
     once('  newline_event <= key_enter or (tx', '  newline_event <= (key_enter and not cart_mode) or (tx')
@@ -225,7 +232,10 @@ def console_source(text):
     text = text.replace(' and not ready and not faulted', ' and not ready and not faulted and not cart_mode')
     extra = '  key_shown <= key_print and not cart_mode;\n'
     extra += '  raw_seen_stage <= latch(cart_mode,cap_en,reset);raw_seen <= latch(raw_seen_stage,com_en,reset);\n  raw_enter <= cart_mode and not raw_seen;\n  blank_stage <= latch(raw_enter,cap_en,reset);\n'
-    extra += '  taken_stage <= latch(gpio(24),cap_en,reset);taken_seen <= latch(taken_stage,com_en,reset);\n  raw_clear <= raw_enter or (cart_mode and (gpio(24) xor taken_seen));\n'
+    # The CPU's clock is unrelated to this one, so its "key taken" toggle is registered first. Compared
+    # directly, a toggle arriving late in a capture phase could end before the key state saw it, and
+    # the same key would be delivered again.
+    extra += '  taken_stage <= latch(gpio(24),cap_en,reset);taken_seen <= latch(taken_stage,com_en,reset);\n  taken_old_stage <= latch(taken_seen,cap_en,reset);taken_old <= latch(taken_old_stage,com_en,reset);\n  raw_clear <= raw_enter or (cart_mode and (taken_seen xor taken_old));\n'
     extra += "  mirror_zero <= screen_data = bits(0,8);\n  mirror_food <= screen_data = bits(2,8);\n  mirror_head <= screen_data = bits(4,8);\n  mirror_code(0) <= not mirror_zero;mirror_code(1) <= not mirror_head;mirror_code(2) <= not mirror_food and not mirror_head;mirror_code(3) <= not mirror_head;mirror_code(4) <= mirror_head;mirror_code(5) <= not mirror_zero and not mirror_food;\n"
     for i in range(48):
         address = i // 12 * 16 + i % 12
@@ -240,10 +250,44 @@ def console_source(text):
         assert n == 1, i
         once(f'  chars_q({i}) <= latch(chars_data({i}),com_en and pixel_write({i}),reset);', f'  chars_q({i}) <= latch(chars_data({i}),(com_en and pixel_write({i})) or mirror_write({i}),reset);')
     # any screen rows below the board are outside the mirror: entry only blanks them, to spaces
-    for i in range(48, len(re.findall(r'^  pixel_write\(\d+\) <=', text, re.M))):
+    count = len(re.findall(r'^  pixel_write\(\d+\) <=', text, re.M))
+    for i in range(48, count):
         pattern = re.compile(rf'^(  pixel_write\({i}\) <= [^;]*);', re.M)
         text, n = pattern.subn(lambda m: f'{m[1]} or blank_stage;', text)
         assert n == 1, i
+    if count < 96:
+        return text.rsplit('end;', 1)[0] + extra + 'end;\n'
+
+    def cell_terms(i, bit_terms):
+        nonlocal text
+        for bit, term in bit_terms:
+            pattern = re.compile(rf'^(  chars_data\({i}\)\({bit}\) <= (?:\(not )?or_reduce\()', re.M)
+            text, n = pattern.subn(lambda m: f'{m[1]}{term} & ', text)
+            assert n == 1, (i, bit)
+
+    def cell_write(i, write):
+        once(f'  chars_q({i}) <= latch(chars_data({i}),com_en and pixel_write({i}),reset);', f'  chars_q({i}) <= latch(chars_data({i}),(com_en and pixel_write({i})) or {write},reset);')
+
+    def glyphs(row, column, line):
+        return {row * 12 + column + k: ord(ch) - 32 for k, ch in enumerate(line)}
+    # entry draws the score line
+    for i, code in glyphs(*SCORE_LINE).items():
+        cell_terms(i, [(bit, 'blank_stage') for bit in range(6) if code >> bit & 1])
+    tens = SCORE_LINE[0] * 12 + SCORE_LINE[1] + len(SCORE_LINE[2]) - 2
+    for k in range(2):
+        address = SCORE_ADDRESS + k
+        extra += f'  score_select({k}) <= screen_write and (screen_address = bits({address},6));\n  score_write({k}) <= screen_late and (screen_address = bits({address},6));\n'
+        # an ASCII digit's glyph code is its low five bits
+        cell_terms(tens + k, [(bit, f'(score_select({k}) and screen_data({bit}))') for bit in range(5)])
+        cell_write(tens + k, f'score_write({k})')
+    lines = [glyphs(*where) for where in RESULTS.values()]
+    for n, value in enumerate(RESULTS):
+        extra += f'  result_is({n}) <= screen_data = bits({value},8);\n  result_select({n}) <= screen_write and result_is({n});\n'
+    extra += '  result_write <= screen_late and or_reduce(result_is);\n'
+    for i in sorted({i for line in lines for i in line}):
+        cell_terms(i, [(bit, f'result_select({n})') for n, line in enumerate(lines) for bit in range(6) if line.get(i, 0) >> bit & 1])
+        cell_write(i, 'result_write')
+    text = text.replace('begin\n', f'  signal score_select,score_write:bit_vector(1 downto 0);signal result_is,result_select:bit_vector({len(RESULTS) - 1} downto 0);signal result_write:bit;\n' + 'begin\n', 1)
     return text.rsplit('end;', 1)[0] + extra + 'end;\n'
 
 

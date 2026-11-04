@@ -70,13 +70,13 @@ def disasm(w, pc=0):
 
 class Machine:
     """RV32E with the cartridge's view of the machine, in the state the firmware leaves on entry:
-    board cleared, wall bytes in columns 12 and 15, arguments in a0..a5.  `keys` are single keys delivered one at a time."""
+    board cleared, wall bytes in columns 12 and 15, '0' in columns 13 and 14, arguments in a0..a5.  `keys` are single keys delivered one at a time."""
 
     def __init__(self, image, base, keys=()):
         self.image, self.base = image, base
         self.ram = bytearray(64)
         for row in range(4):
-            self.ram[row * 16 + 12] = self.ram[row * 16 + 15] = 3
+            self.ram[row * 16 + 12:row * 16 + 16] = bytes((3, 48, 48, 3))
         self.x = [0] * 32
         self.x[10:16] = [21, 20, 1, 38, 2, 4]          # the arguments the firmware passes
         self.pc = base
@@ -88,6 +88,14 @@ class Machine:
         """What the console shows: RAM cells through the display map."""
         glyph = lambda v: '.' if v == 0 else '+' if v == 2 else 'Q' if v == 4 else 'O'
         return [''.join(glyph(self.ram[r * 16 + c]) for c in range(12)) for r in range(4)]
+
+    def score(self):
+        """The two digits on the score line."""
+        return chr(self.ram[13]) + chr(self.ram[14])
+
+    def result(self):
+        """The result line."""
+        return {5: 'YOU LOST', 6: 'YOU WON'}.get(self.ram[29], '')
 
     def load(self, a, size, signed, static=False):
         a &= M32

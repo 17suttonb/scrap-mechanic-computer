@@ -8,7 +8,7 @@ from accelerated.circuit import GATE_UUID
 from accelerated.io import read, save
 from accelerated.packet import Encoder
 
-def prototype(baseline, record_root):
+def prototype(baseline, record_root, console_switches=False):
     src = Path(baseline['folder'])
     raw = (src / 'blueprint.json').read_bytes()
     assert hashlib.sha256(raw).hexdigest() == baseline['blueprint_sha256']
@@ -63,13 +63,23 @@ def prototype(baseline, record_root):
         added.append(i)
         cm['nodes'].append(dict(controllerId=i, editorId=f'modular-{i}', label=label, kind='OR' if template is None else next((k for k, v in {'AND': 0, 'OR': 1, 'XOR': 2, 'NAND': 3, 'NOR': 4, 'XNOR': 5}.items() if v == p['controller']['mode'])), position=p['pos']))
         return i
-    reset_rx = add_gate('terminal', 'Module RESET receive')
-    links.append(dict(name='RESET', direction='cpu -> terminal', source=reset, receiver=reset_rx, preserves_existing_gate_delay=False))
-    edges.add((reset, reset_rx))
+    if console_switches:
+        # The switches sit by the keyboard. A seam block must touch its partner, so each drives a relay at the seam.
+        owner[reset] = owner[run] = 'terminal'
+        run_tx, run_rx = add_gate('terminal', 'Module RUN send'), add_gate('cpu', 'Module RUN receive')
+        links.append(dict(name='RUN', direction='terminal -> cpu', source=run_tx, receiver=run_rx, switch=run, preserves_existing_gate_delay=False))
+        edges |= {(run, run_tx), (run_tx, run_rx)}
+        reset_tx, reset_rx = add_gate('terminal', 'Module RESET send'), add_gate('cpu', 'Module RESET receive')
+        links.append(dict(name='RESET', direction='terminal -> cpu', source=reset_tx, receiver=reset_rx, switch=reset, preserves_existing_gate_delay=False))
+        edges |= {(reset, reset_tx), (reset_tx, reset_rx)}
+    else:
+        reset_rx = add_gate('terminal', 'Module RESET receive')
+        links.append(dict(name='RESET', direction='cpu -> terminal', source=reset, receiver=reset_rx, preserves_existing_gate_delay=False))
+        edges.add((reset, reset_rx))
 
     def local_pure(i, domain):
         if i == reset:
-            return i if domain == 'cpu' else reset_rx
+            return i if domain == owner[reset] else reset_rx
         if owner[i] == domain:
             return i
         key = (i, domain)
@@ -99,6 +109,8 @@ def prototype(baseline, record_root):
     for a, b in sorted(original_edges):
         if owner[a] == owner[b]:
             edges.add((a, b))
+        elif a == run and console_switches:
+            edges.add((run_rx, b))
         elif a == run:
             assert b == svc['names']['run']
             edges.add((a, b))

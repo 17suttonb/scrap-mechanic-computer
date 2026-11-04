@@ -39,8 +39,9 @@ direct_keyword:
     addi x13,x0,10
     j keyword_dispatch_loaded
 enter_cartridge:
-    ; Clear the board and set the wall bytes (columns 12 and 15 of each row), then run the cartridge.
-    li x6,50331651
+    ; Clear the board and fill the hidden columns of each row, then run the cartridge:
+    ; walls in columns 12 and 15, '0' in columns 13 and 14 (row 0 holds the score there).
+    li x6,53489667
     sw x6,12(x8)
     sw x6,28(x8)
     sw x6,44(x8)

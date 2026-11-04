@@ -50,6 +50,33 @@ def walls_intact(m):
     return all(m.ram[r * 16 + 12] == 3 and m.ram[r * 16 + 15] == 3 for r in range(4))
 
 
+def tour(board):
+    """The direction that keeps a head on a closed path through all 48 cells, which never hits the body."""
+    x, y = head(board)
+    if x == 0:
+        return 'D' if y == 0 else 'W'
+    if y == 3:
+        return 'A'
+    if y % 2 == 0:
+        return 'D' if x < 11 else 'S'
+    return 'A' if x > 1 else 'S'
+
+
+def play_tour(limit=2000000):
+    """Follow the closed path until the game ends. Returns every board and the machine."""
+    m = Machine(image, BASE)
+    boards, going = [], 'D'
+    while not m.stop and m.retired < limit:
+        m.step()
+        if m.pc == BASE + POLL:
+            boards.append(m.screen())
+            key = tour(boards[-1])
+            if key != going:
+                m.keys.append(key)
+                going = key
+    return boards, m
+
+
 # hands off: the head is one Q, the body is O, and the row wraps at both ends of the screen
 boards, m = play()
 assert not m.stop
@@ -92,8 +119,21 @@ def body_ahead(m):
 
 
 boards, m = play(prepare=body_ahead)
-assert m.stop and m.x[10] & 63 == 16 + 9, m.x[10]
+assert m.stop
 assert m.screen()[1][9] == 'Q', m.screen()
+assert m.result() == 'YOU LOST' and m.score() == '00', (m.result(), m.score())
+
+# the score counts food, and no result shows while the game runs
+boards, m = play({1: 'S'}, limit=60)
+assert m.score() == '01' and m.result() == '' and not m.stop, (m.score(), m.result())
+
+# a perfect game: food is always on the board, the score carries, and filling the board wins
+boards, m = play_tour()
+assert m.stop and m.result() == 'YOU WON' and m.score() == '46', (m.stop, m.result(), m.score(), boards[-1])
+assert all(count(b, '+') == 1 for b in boards), 'a board without visible food'
+assert count(m.screen(), 'O') + count(m.screen(), 'Q') == 48, m.screen()
+assert walls_intact(m), m.ram.hex()
+won_moves = len(boards)
 
 # cost of one move in steady state
 m = Machine(image, BASE)
@@ -104,5 +144,5 @@ while len(marks) < 4 and not m.stop:
         marks.append(m.retired)
 costs = [b - a for a, b in zip(marks, marks[1:])]
 assert costs == [HOT_LOOP] * 3, costs
-print(f'cartridge words: {len(image) // 4}, instructions per move: {costs[0]}, instructions to first move: {marks[0]}')
+print(f'cartridge words: {len(image) // 4}, instructions per move: {costs[0]}, instructions to first move: {marks[0]}, moves in a winning game: {won_moves}')
 print('OK')

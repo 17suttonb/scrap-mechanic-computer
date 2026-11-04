@@ -19,8 +19,13 @@ FLAT_CORE_TIMER_Y = 36
 CART_SEAM_CPU_Y = 79       # CORE-side blocks of the cartridge seam
 CART_SEAM_CART_Y = 80      # CARTRIDGE-side blocks, touching the CORE row
 CART_CUBE_Y = 83           # logic cube of the cartridge module
+CONSOLE_SWITCH_X = -6      # RUN, then RESET two along, then the manual clock switches
+CONSOLE_SWITCH_Y = -22
+SLAB_LEFT, SLAB_RIGHT = -26, 56
+BLOCK_LIMIT = 64
 
-def build(root, flat=False):
+def build(root, flat=False, solid=False):
+    """solid (beta): RUN and RESET on the console, which stands on a slab with the screen backed by blocks."""
     touching = True
     title = 'FAST BASIC'
     name_prefix = 'accelerated '
@@ -62,6 +67,10 @@ def build(root, flat=False):
     timer_ids = {t['controllerId'] for c in (clock, svc) for t in c['timers']}
     flat_width = {}
     exposed = pixel_ids | key_ids | monitors | timer_ids | {l[k] for l in links + cart_links for k in ('source', 'receiver')}
+    # switches join only through their back, so they cannot be part of a wall of gates
+    switches = {l['name']: l['switch'] for l in links if 'switch' in l}
+    manual = {'cpu': [clock['names'][n] for n in ('manual_capture', 'manual_commit')], 'terminal': [svc['names'][n] for n in ('manual_capture', 'manual_commit')]} if solid else {}
+    exposed |= set(switches.values()) | {i for ids in manual.values() for i in ids}
     section_of, section_colour, section_count = {}, {}, {}
     if flat:
         # Paint by functional section instead of by gate type. Colours are spread by maximin distance
@@ -118,12 +127,20 @@ def build(root, flat=False):
             i = l[role]
             y = cpu_y if owner[i] == 'cpu' else terminal_y
             color = '44AF55' if role == 'source' else 'DFE0E1'
-            if True and l['name'] == 'RUN' and (role == 'source'):
+            if not switches and l['name'] == 'RUN' and (role == 'source'):
                 color = '4C6FE3'
-            if True and l['name'] == 'RESET' and (role == 'source'):
+            if not switches and l['name'] == 'RESET' and (role == 'source'):
                 color = 'D96852'
             parts[i].update(pos=dict(x=x, y=y, z=1), xaxis=1, zaxis=-2, color=color)
         l.update(number=index, row=0, column=col, source_position=parts[l['source']]['pos'], receiver_position=parts[l['receiver']]['pos'])
+    # above the keyboard, level with its lamps
+    for name, x, color in (('RUN', CONSOLE_SWITCH_X, '4C6FE3'), ('RESET', CONSOLE_SWITCH_X + 2, 'D96852')):
+        if name in switches:
+            parts[switches[name]].update(pos=dict(x=x, y=CONSOLE_SWITCH_Y + 1, z=1), xaxis=1, zaxis=-2, color=color)
+    for domain, ids in manual.items():
+        for n, i in enumerate(ids):
+            x, y = (CONSOLE_SWITCH_X + 5 + n * 2, CONSOLE_SWITCH_Y) if domain == 'terminal' else (-15 + n * 2, 33)
+            parts[i].update(pos=dict(x=x, y=y + 1, z=1), xaxis=1, zaxis=-2)
     cart_links.sort(key=lambda l: (l['direction'] != 'cpu -> cartridge', l['name']))
     for index, l in enumerate(cart_links, 1):
         for role in ('source', 'receiver'):
@@ -165,6 +182,16 @@ def build(root, flat=False):
             color = '34465E'
             children.append(dict(shapeId=BASE_UUID, color=color, pos=dict(x=x, y=y, z=z), bounds=dict(x=w, y=d, z=h), xaxis=1, zaxis=3))
 
+        def box(x, y, z, w, d, h):
+            """A block of any size, in pieces the game's block size limit allows. Returns them."""
+            pieces = []
+            for dx in range(0, w, BLOCK_LIMIT):
+                for dy in range(0, d, BLOCK_LIMIT):
+                    for dz in range(0, h, BLOCK_LIMIT):
+                        block(x + dx, y + dy, z + dz, min(BLOCK_LIMIT, w - dx), min(BLOCK_LIMIT, d - dy), min(BLOCK_LIMIT, h - dz))
+                        pieces.append(children[-1])
+            return pieces
+
         def label(text, x, y, z=1, upright=False):
             nonlocal next_sign
             p = make_sign(text, next_sign, dict(x=x, y=y, z=z), 'in')
@@ -177,8 +204,10 @@ def build(root, flat=False):
         label({'cpu': 'CORE', 'terminal': 'CONSOLE', 'cartridge': 'CARTRIDGE'}[domain], -15 + (len(cart_links) if domain == 'cartridge' else link_count) + 2, {'cpu': 30, 'terminal': 28, 'cartridge': CART_SEAM_CART_Y}[domain])
         if domain == 'cpu' and cart_links:
             label('CARTRIDGE SEAM', -15 + len(cart_links) + 2, CART_SEAM_CPU_Y - 3)
-        if domain == 'cpu':
+        if domain == 'cpu' and not switches:
             label('RUN RESET', 3, 32)
+        if domain == 'terminal' and switches:
+            label('RUN RESET', CONSOLE_SWITCH_X - 1, CONSOLE_SWITCH_Y + 1)
         if domain == 'terminal':
             block(-17, 0, 2, 74)
             block(-17, 0, term['height'] + 3, 74)
@@ -187,6 +216,10 @@ def build(root, flat=False):
             block(-17, 0, 1)
             block(56, 0, 1)
             label('FAST BASIC', 16, 1, term['height'] + 4, upright=True)
+            if solid:
+                # the foot of the screen, and a plate behind every pixel and the title sign
+                box(-16, 0, 1, 72, 1, 1)
+                box(-17, 1, 1, 74, 1, term['height'] + 5)
             for n, t in enumerate(svc['timers']):
                 label('IO ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 10)
         elif domain == 'cpu':
@@ -205,8 +238,17 @@ def build(root, flat=False):
             block(-20, pad_y, 1, color='F5D742')
             block(-20, pad_y, 2, color='D96852')
             label('WELD', -25, weld_y)
+        plates = []
+        if solid and domain == 'terminal':
+            # A slab under the keyboard, the screen and the seam. A strip carries it along a flat wall.
+            footprint = [c for p in children if not (p['shapeId'] == BASE_UUID and p['pos']['z'] == 0) for c in occupied_cells(p)]
+            front = min(c[1] for c in footprint)
+            plates += box(SLAB_LEFT, front, 0, SLAB_RIGHT - SLAB_LEFT + 1, 29 - front + 1, 1)
+            left = min(c[0] for c in footprint)
+            if left < SLAB_LEFT:
+                plates += box(left, FLAT_CONSOLE_Y - 3, 0, SLAB_LEFT - left, 5, 1)
         module = dict(bp, bodies=[dict(childs=children)])
-        support = sparse_supports(module)
+        support = sparse_supports(module, strict=solid, plates=plates)
         occupied = Counter((c for p in module['bodies'][0]['childs'] for c in occupied_cells(p)))
         assert max(occupied.values()) == 1, [(c, n) for c, n in occupied.items() if n > 1][:5]
         assert len(components(occupied)) == 1

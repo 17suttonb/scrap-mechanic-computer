@@ -22,8 +22,8 @@ fields (register selects, immediate, branch target, flags), and so does the cart
 | CORE to CARTRIDGE | `cart_address` = PC bits 11..2 | 10 |
 | CARTRIDGE to CORE | `sa`, `sb`, `sw` (15 each: one-hot read A, read B and write register x1..x15), `imm` (12, sign-extended by the CPU), `target` (10), `f3`, `aluop` (3 each), `legal`, `load`, `store`, `branch`, `jal`, `jalr`, `immediate`, `compare`, `static`, `key`, `nokey` | 84 |
 
-Bits that no row ever sets are constant, and pins that share a driver share a wire, so the seam carries **61 links** for
-Snake. The cartridge is 215 logic blocks (5 KB packet); the window holds up to 512 rows.
+Bits that no row ever sets are constant, and pins that share a driver share a wire, so the seam carries **62 links** for
+Snake. The cartridge is 233 logic blocks (6 KB packet); the window holds up to 512 rows.
 
 Limits: a cartridge cannot use `lui`, `auipc`, shifts, `ecall`/`ebreak`, and must not write `x8` (the firmware's fixed base
 register). `rows()` rejects those at build time. Branch targets must stay inside the window. **A cartridge must be the
@@ -37,10 +37,12 @@ costs a bus transaction per character.
 * **The board is the screen.** Register-addressed cartridge loads and stores reach the RAM through the low six address
   bits, so positions wrap. A store also writes the matching screen cell during its own commit phase, over a direct wire,
   without stalling: row = address / 16, column = address & 15. Value 0 shows as `.`, 2 as `+`, 4 as `Q`, anything else as `O`.
-  Only the top four screen rows are mapped, because the RAM has 64 bytes; rows below them stay blank during a game.
+  Only the top four screen rows are mapped, because the RAM has 64 bytes.
+* **Score and result lines.** On a screen of at least eight rows, entry also draws `SCORE 00` on row 5. Stores to addresses 13 and 14, which are not on the board, write its two digits. Storing 5 or 6 (address 29 in Snake, which is not on the board either) writes `YOU LOST` or `YOU WON` on row 7, all at once, in one store.
 * **Entry clears the screen** in one console cycle, by the same parallel page write the boot banner uses.
 * **Keys are single taps.** They are not echoed and need no ENTER. Status bit 7 says a key is waiting, reading -236 takes
-  it, and no acknowledge transaction is needed.
+  it, and no acknowledge transaction is needed. One key waits at a time: a tap made while the last key is still waiting is ignored.
+  A key seen on the screen during a move is read after the next move.
 * **Folded rows.** The cartridge builder folds three instruction pairs into one single-cycle row:
   `lb t,0(x); sb r,0(x)` is a swap (the CPU reads during capture and writes during commit),
   `lb t,-240(zero); blt/bge t,zero,target` branches on the ready flag directly, and
@@ -65,19 +67,22 @@ All four edges wrap. Top and bottom wrap through the six-bit addressing. Columns
 shown: stepping onto one takes a slow path that moves the head to the other side and gives the cell it left a step of 11,
 so the tail crosses with no extra code.
 
-A move is ten RV32E instructions in six rows: store-and-add, swap, `bne`, swap, `add`, key test and loop. A turn adds up
-to about ten rows once, for the key comparisons, and a side wrap adds about ten.
+A move is ten RV32E instructions in six rows: store-and-add, swap, `bne`, swap, `add`, key test and loop. Reading a key adds
+14 to 17 cycles once (`S` and `D` cost the most), about 14 s, and a side wrap adds about 13 cycles, about 11 s.
+
+**Score.** The score is two ASCII digits in columns 13 and 14 of row 0, and those bytes are also what the screen shows. Eating adds one and carries. Those hidden columns are `'0'` in every row, set by the firmware, so the food search skips them. (They used to be 0, which put the seventh food off the board, where the player could not reach it.)
 
 **Game over.** The swap at the new head position returns what was in that cell. Zero means free. Otherwise the slow path
 checks for a wall (wrap, then look again), then for food (grow). Anything else is the snake's own body, so the program
-jumps to `for (;;) { }`. Moving into the cell the tail is just leaving counts, because the head is checked first.
+writes `YOU LOST` and jumps to `for (;;) { }`. Moving into the cell the tail is just leaving counts, because the head is checked first.
+
+**Winning.** The snake starts 2 long and the board has 48 cells, so food number 46 fills it. The program checks for that score before looking for a free cell, writes `YOU WON` and spins the same way.
 
 The CPU does not halt or fault. It keeps running at full clock, re-executing that one jump for ever, with `HALTED` and
 `FAULTED` off and the PC on that row, and the console stays in cartridge mode. The screen keeps the last board with the
 head drawn over the cell it hit. Keys are ignored; an unread key leaves BUSY on. RESET is the only way out.
 
-If the snake ever fills every free cell, the search for a food cell never ends, which also leaves the CPU spinning with
-the last board up.
+The food search tries cells in steps of 17, so on a nearly full board it can take over 200 cycles, around three minutes, with the game paused.
 
 Build the image with `cartridge/compile.py` (needs `pip install ziglang`; the committed `snake.bin` is what the build uses).
 `cartridge/test_snake.py` plays the binary on an RV32E simulator with cartridge mode's memory map (`cartridge/rvtools.py`):
@@ -96,4 +101,10 @@ steering, growth, wrap on all four edges, body collision, reversal rules and the
 
 Times are at the nominal 40 updates per second, from simulated runs, not from the game.
 
-A one-letter transient glyph can show for a few updates while a screen cell changes.
+A one-letter transient glyph can show for a few updates while a screen cell changes. A carry writes the tens digit first, so `19` shows for about 1.6 s between `09` and `10`.
+
+## Physical build
+
+In `--beta` builds the console stands on a solid slab of blocks that runs under the keyboard, the screen and the seam, with a strip along a flat logic wall. Every screen pixel has a block plate behind it, and RUN, RESET and the manual clock switches sit on the slab above the keyboard.
+
+The game's part definitions say switches and buttons attach only through their back face, which points down in these orientations, and most had air there. The build now checks each module with those rules (`loose_parts` in `accelerated/supports.py`) and fails if a part is unattached. Signs are assumed to attach only through their back as well, because they are not in the game's own definitions. None of this has been loaded in the game yet.

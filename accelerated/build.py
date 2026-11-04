@@ -62,8 +62,8 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     (folder / 'blueprint.json').write_bytes(raw)
     record.update(blueprint_sha256=hashlib.sha256(raw).hexdigest(), orders=orders)
     release = work / 'release'
-    prototype(record, release)
-    layout(release, flat=flat)
+    prototype(record, release, console_switches=beta)
+    layout(release, flat=flat, solid=beta)
     modules = read(release / 'modules.json')['modules']
     comparison = {}
     for key, module in modules.items():
