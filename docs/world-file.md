@@ -67,7 +67,7 @@ Results for the `--beta` export with 3 modules against a hand-assembled save of 
 | Blocks | 55 boxes in the export, 40 in the save after the game merged them; all 10,797 cells covered |
 | Body | Row layout byte-identical; bounds equal except one edge, 0.043 m off (see below) |
 
-The output's connections, rebuilt from its rows alone, were then run in the repo simulator (the Python model) with `bench_commands.py`, next to the modules joined by their own maps. Boot, `H` and `?2+3` gave the same screens at the same times (34.25 s and 26.12 s, `005`). On the output's connections, `S` ENTER started Snake from the cartridge: board, `Q`, `+` and `SCORE 00`. That shows the wiring is right; it says nothing about how the game reads the file.
+The output's connections, rebuilt from its rows alone, were then run in the repo simulator (the Python model) with `bench_commands.py`, next to the modules joined by their own maps. Boot, `H` and `?2+3` gave the same screens at the same times (34.25 s and 26.12 s, `005`). On the output's connections, what was then `S` ENTER at the prompt started Snake from the cartridge: board, `Q`, `+` and `SCORE 00`. That shows the wiring is right; it says nothing about how the game reads the file.
 
 ## Format (savegame version 29, big-endian unless noted)
 
