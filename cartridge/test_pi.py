@@ -60,7 +60,7 @@ def main():
                 last_now = now
                 print(f'{m.seconds() / 60:8.1f} min  {now}  {screen[6]}  {screen[7]}', flush=True)
     assert m.spin, 'did not finish'
-    assert 'DONE' in m.text()[7]
+    assert 'OK' in m.text()[7]
     print(f'finished at {m.seconds() / 3600:.2f} hours: {m.text()}')
     print('OK')
 

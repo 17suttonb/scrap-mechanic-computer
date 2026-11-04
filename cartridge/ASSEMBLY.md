@@ -16,7 +16,7 @@ The programs on the standard cartridge:
 
 * **1 TBASIC.** The BASIC interpreter, with a prompt once `TBASIC+ / 16 LINES` is up. Type lines and press ENTER; `H` then ENTER shows the commands.
 * **2 SNAKE.** Steer with one tap of **W A S D**. No ENTER. `Q` is the head, `O` the body and `+` food. All four edges wrap around. The bottom row shows the score on the left and, on the right, the key just tapped. Tap turns ahead if you like: they queue, and one applies per move. Running into the snake's own body shows `YOU LOST`, and filling the board (score 82) shows `YOU WON`. The last board and the score stay up.
-* **3 PI.** Works out pi by itself and needs no keys. Rows 1 to 4 show only digits it has proved. `NOW` is the estimate during the first pass, `P` and `TERM` how far it has got, and `SURE` how many decimals are proved. It reaches 20 decimals and then shows `DONE`, in about 6.7 hours at the nominal 40 updates per second.
+* **3 PI.** Works out pi by itself and needs no keys. Rows 1 to 4 show only digits it has proved. `NOW` is the estimate during the first pass, `P` and `TERM` how far it has got, and `EXACT` how many decimals are proved. It reaches 20 decimals and then shows `OK`, in about 6.7 hours at the nominal 40 updates per second.
 
 If the cartridge is not connected the screen says `NO CARTRIDGE`, and RESET checks again.
 

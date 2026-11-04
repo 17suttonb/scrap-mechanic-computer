@@ -211,7 +211,7 @@ It runs four passes, at 4, 7, 10 and 13 fraction bytes, each starting again. The
 
 **Only proven digits are shown.** Both series alternate with falling terms, so what is left of a series is at most its next term. With f the first nonzero byte of that term's T, plus one if T's first byte is under the next divisor, the two series' remainders are under 2 units of byte f-1 of the sum S. f is capped at L-1, which leaves rounding (under 2.1 units in the last place per term) far below that. If byte f-1 is in 3..96, adding or taking away that error cannot change any byte above it, so those bytes are proven. If it is not, the next byte up is tried. So digits arrive two at a time.
 
-The screen: row 0 is the title, rows 1..4 the proven digits, row 5 `NOW` and the current estimate during the first pass, row 6 the pass and the sum of the two divisors, row 7 `SURE` and the count, with `DONE` at the end. A proven digit is never taken back: a new pass only adds to the screen when it passes what is there. `python -I cartridge/test_pi.py` checks every state of that screen against exact digits. `cartridge/sim_pi.py` does the same at logic level.
+The screen: row 0 is the title, rows 1..4 the proven digits, row 5 `NOW` and the current estimate during the first pass, row 6 the pass and the sum of the two divisors, row 7 `EXACT` and the count of decimals proved, with `OK` at the end. A proven digit is never taken back: a new pass only adds to the screen when it passes what is there. `python -I cartridge/test_pi.py` checks every state of that screen against exact digits. `cartridge/sim_pi.py` does the same at logic level.
 
 | Decimals proven | After |
 |---:|---:|
@@ -222,7 +222,7 @@ The screen: row 0 is the title, rows 1..4 the proven digits, row 5 `NOW` and the
 | 14 | 199.1 min |
 | 18 | 379.8 min |
 | 20 (3.14159265358979323846) | 396.7 min |
-| finished, `DONE` | 6.67 hours |
+| finished, `OK` | 6.67 hours |
 
 The title is up about 25 s after the key, and `NOW 3.2` less than a minute after that. `NOW` then gives 3.15 in about 10 minutes and 3.1405 in about 17, before anything is proven. The limit is the 64-byte RAM: four arrays of 14 bytes and eight variables. A cartridge whose program ran in board mode would have 36 more bytes.
 

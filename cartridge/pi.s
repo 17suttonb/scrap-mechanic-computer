@@ -24,12 +24,14 @@
 ; @data ones "0123456789" "0123456789" "0123456789" "0123456789" "0123456789" "0123456789" "0123456789" "0123456789" "0123456789" "0123456789"
     sbi 80,-512
     sbi 73,-511
-    sbi 77,-509
-    sbi 65,-508
-    sbi 67,-507
-    sbi 72,-506
-    sbi 73,-505
-    sbi 78,-504
+    sbi 66,-509
+    sbi 89,-508
+    sbi 77,-506
+    sbi 65,-505
+    sbi 67,-504
+    sbi 72,-503
+    sbi 73,-502
+    sbi 78,-501
     sbi 78,-432
     sbi 79,-431
     sbi 87,-430
@@ -38,10 +40,11 @@
     sbi 69,-412
     sbi 82,-411
     sbi 77,-410
-    sbi 83,-400
-    sbi 85,-399
-    sbi 82,-398
-    sbi 69,-397
+    sbi 69,-400
+    sbi 88,-399
+    sbi 65,-398
+    sbi 67,-397
+    sbi 84,-396
     addi x15,x0,-496
     sbi 4,56                    ; L, the last byte in use in this pass
 new_pass:
@@ -155,10 +158,8 @@ pass_done:
     sb x3,56(x0)
     j new_pass
 finished:
-    sbi 68,-392
     sbi 79,-391
-    sbi 78,-390
-    sbi 69,-389
+    sbi 75,-390
 stay:
     j stay
 ; x2 = array, x3 = the byte to start at. Returns in x3 the first nonzero byte, or L+1.
@@ -421,9 +422,9 @@ prove_next:
     addi x4,x4,-1
     add x4,x4,x4
     lbu x3,tens(x4)
-    sb x3,-395(x0)
-    lbu x3,ones(x4)
     sb x3,-394(x0)
+    lbu x3,ones(x4)
+    sb x3,-393(x0)
 prove_done:
     jalr x0,0(x1)
 prove_step:

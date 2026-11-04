@@ -71,7 +71,7 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     joined = layout(release, flat=flat, solid=beta, districts=districts, total=3 if image else 2, attached=image is not None)
     modules = read(release / 'modules.json')['modules']
     if image:
-        modules['cartridge'] = cartridge_module.build(image, release / 'modules', districts=districts)
+        modules['cartridge'] = cartridge_module.build(image, release / 'modules', districts=districts, flat=flat)
         cartridge_module.attach_joined(joined['folder'], modules['cartridge']['folder'], read(release / 'seam.json')['links'])
         for module in modules.values():
             print('PACKET', module['blueprint_name'], module['packet_bytes'], flush=True)

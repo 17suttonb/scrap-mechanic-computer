@@ -51,7 +51,7 @@ def main():
         if rows[5:] != getattr(m, 'seen', None):
             m.seen = rows[5:]
             print(f'{minutes:8.1f} min  {rows[5]:12s} {rows[6]:12s} {rows[7]}', flush=True)
-        if 'DONE' in rows[7]:
+        if 'OK' in rows[7]:
             print(f'finished at {minutes / 60:.2f} hours: {rows}')
             break
     print('PASS' if ok and last else 'FAIL')

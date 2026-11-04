@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import re
 import tempfile
 import uuid
 import lz4.block
@@ -38,7 +39,7 @@ def map_groups(image, net):
     return dict(groups=[g.meta() for g in image.groups if g.key in net.report['group_blocks']])
 
 
-def build(image, output, districts=True, total=3):
+def build(image, output, districts=True, total=3, flat=False):
     """Write one module folder under `output`. Returns its record."""
     net = cart.netlist(image)
     parts = {}
@@ -60,6 +61,22 @@ def build(image, output, districts=True, total=3):
         for i, (x, y, z) in plan.position.items():
             parts[i].update(pos=dict(x=x, y=y, z=z), xaxis=1, zaxis=3, color=plan.colour[i])
         signs, report = plan.signs, plan.report
+    elif flat:
+        # One upright wall, twice as wide as tall, like the flat CORE and CONSOLE; each program's gates in its own colour.
+        width = 1
+        while width * (width // 2) < len(ids):
+            width += 1
+        tags = {}
+        for i in ids:
+            m = re.search(r' @cart_(\w+)', net.labels.get(i, ''))
+            if m:
+                tags.setdefault(m[1], len(tags))
+        for n, i in enumerate(ids):
+            row, col = divmod(n, width)
+            parts[i].update(pos=dict(x=SEAM_LEFT + col + 1, y=CUBE_Y + 1, z=1 + row), xaxis=-1, zaxis=3)
+            m = re.search(r' @cart_(\w+)', net.labels.get(i, ''))
+            if m:
+                parts[i]['color'] = dist.CART_PALETTE[tags[m[1]] % len(dist.CART_PALETTE)]
     else:
         side = 1
         while side ** 3 < len(ids):
