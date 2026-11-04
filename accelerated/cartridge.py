@@ -355,31 +355,62 @@ def netlist(image):
             wanted[i] = DATA_BASE + n
     literals('cart_data_address', wanted, 'address_data')
 
-    def merge(pin, key, signal, terms, shared):
-        """Group `key` drives `pin` with an OR of its terms, one the group already has if the terms match."""
-        for start in range(0, len(terms), 128):
-            chunk = tuple(sorted(terms[start:start + 128]))
+    # One shared output bus. Every row select and data select is a term of the field ORs of all programs
+    # together: the address decode already makes exactly one of them high, so nothing has to select a program
+    # first. A pin takes up to 128 terms itself (it is an OR gate); more go through one level of ORs, the terms
+    # ordered by group so each of those ORs mostly serves one group. No program has ORs of its own.
+    order = {g.key: n for n, g in enumerate(image.groups)}
+    term_group = {}
+    for selected in (*row_selects.values(), *data_selects.values()):
+        for i in selected.values():
+            term_group[i] = re.search(r' @cart_(\w+):', labels[i])[1]
+    wires = []                  # (pin, signal name, terms)
+    for name, width in FIELDS.items():
+        for bit in range(width):
+            if name in ('sa', 'sb', 'sw') and bit == NO_REGISTER - 1:
+                continue
+            terms = [i for selected in row_selects.values() for n, i in selected.items() if folded.rows[n][name] >> bit & 1]
+            if terms:
+                wires.append((ids[pin_name('cart_' + name, bit if width > 1 else None)], f'{name}({bit})' if width > 1 else name, terms))
+    for bit in range(8):
+        terms = [i for selected in data_selects.values() for n, i in selected.items() if data[n] >> bit & 1]
+        if terms:
+            wires.append((ids[f'cart_data({bit})'], f'data({bit})', terms))
+    # A group's terms that several pins share (a program's rows mostly set the same fields together) go through
+    # one OR for all of those pins, which saves wires; everything else wires straight into the pin.
+    split = []
+    uses = {}
+    for pin, signal, terms in wires:
+        parts = {}
+        for i in sorted(terms):
+            parts.setdefault(term_group[i], []).append(i)
+        split.append((pin, signal, parts))
+        for part in parts.values():
+            uses[tuple(part)] = uses.get(tuple(part), 0) + 1
+    shared = {}
+    for pin, signal, parts in split:
+        loose = []
+        for key in sorted(parts, key=lambda k: order.get(k, len(order))):
+            part = tuple(parts[key])
+            if len(part) > 1 and len(part) <= 128 and uses[part] * len(part) > len(part) + uses[part]:
+                if part not in shared:
+                    shared[part] = gate('OR', f'OR @cart_{key}:g_{signal}', part)
+                edges.add((shared[part], pin))
+            else:
+                loose.extend(part)
+        if len(loose) <= 100:
+            edges.update((i, pin) for i in loose)
+            continue
+        for start in range(0, len(loose), 128):
+            chunk = tuple(loose[start:start + 128])
             if len(chunk) == 1:
                 edges.add((chunk[0], pin))
                 continue
             if chunk not in shared:
-                shared[chunk] = gate('OR', f'OR @cart_{key}:{signal}', chunk)
+                keys = {term_group[i] for i in chunk}
+                tag = f'@cart_{next(iter(keys))}:g_{signal}' if len(keys) == 1 else f'@cart:cart_g_{signal}'
+                shared[chunk] = gate('OR', f'OR {tag}', chunk)
             edges.add((shared[chunk], pin))
-    for key, selected in row_selects.items():
-        shared = {}
-        for name, width in FIELDS.items():
-            for bit in range(width):
-                if name in ('sa', 'sb', 'sw') and bit == NO_REGISTER - 1:
-                    continue
-                terms = [i for n, i in selected.items() if folded.rows[n][name] >> bit & 1]
-                if terms:
-                    merge(ids[pin_name('cart_' + name, bit if width > 1 else None)], key, f'g_{name}({bit})' if width > 1 else f'g_{name}', terms, shared)
-    for key, selected in data_selects.items():
-        shared = {}
-        for bit in range(8):
-            terms = [i for n, i in selected.items() if data[n] >> bit & 1]
-            if terms:
-                merge(ids[f'cart_data({bit})'], key, f'g_data({bit})', terms, shared)
     counts = {}
     for label in labels.values():
         tag = re.search(r' @cart_(\w+):', label)
