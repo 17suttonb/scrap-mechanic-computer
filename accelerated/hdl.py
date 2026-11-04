@@ -368,6 +368,7 @@ class Builder:
         self.wide_gates = False
         self.latch_style = 'nor'
         self.section = None
+        self.site = ''
 
     def allocate(self):
         if self.next_net > self.limit * 4:
@@ -395,7 +396,7 @@ class Builder:
         if len(self.gates) >= self.limit:
             raise HDLError(f'Design exceeds {self.limit:,} logic blocks before fan-out buffers.', token)
         n = self.allocate()
-        self.gates[n] = dict(kind=kind, sources=tuple(sources), label=label or (f'{kind} @{self.section}' if self.section else kind), initial=initial, token=token)
+        self.gates[n] = dict(kind=kind, sources=tuple(sources), label=label or (f'{kind} @{self.section}{self.site}' if self.section else kind), initial=initial, token=token)
         return n
 
     def gate(self, kind, a, b=None):
@@ -953,9 +954,10 @@ class Elaborator:
                 _, token, target, value = statement
                 outer, self.builder.section = (self.builder.section, sections.classify(stack, sections.target_name(target)))
                 destination = self.target(target, env)
+                outer_site, self.builder.site = (self.builder.site, sections.site_of(self.builder.refs, destination.nets))
                 source = self.bits(self.evaluate(value, env, len(destination)), value.token, len(destination))
                 self.builder.drive(destination, source, token)
-                self.builder.section = outer
+                self.builder.section, self.builder.site = (outer, outer_site)
             elif category == 'generate':
                 _, label, var, bounds, body = statement
                 if var.text in env:

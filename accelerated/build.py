@@ -20,7 +20,7 @@ from accelerated.layout import build as layout
 from accelerated.io import read, save
 from accelerated.cartridge import combined_image, build as build_cartridge
 
-def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0, cartridge=None, cpu_ticks=None, screen_rows=4):
+def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0, cartridge=None, cpu_ticks=None, screen_rows=4, districts=False):
     package_root = Path(package_root).resolve()
     recipe = read(package_root / 'release.json')
     if cpu_ticks:
@@ -63,14 +63,14 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     record.update(blueprint_sha256=hashlib.sha256(raw).hexdigest(), orders=orders)
     release = work / 'release'
     prototype(record, release, console_switches=beta)
-    layout(release, flat=flat, solid=beta)
+    layout(release, flat=flat, solid=beta, districts=districts)
     modules = read(release / 'modules.json')['modules']
     comparison = {}
     for key, module in modules.items():
         expected = recipe['modules'].get(key) or dict(blueprint_sha256=None, packet_bytes=None)
         comparison[key] = dict(expected=expected['blueprint_sha256'], rebuilt=module['blueprint_sha256'], identical=expected['blueprint_sha256'] == module['blueprint_sha256'])
-        if flat or beta:
-            # The flat panel layout is an unpinned variant: only the import limit applies.
+        if flat or beta or districts:
+            # A layout variant is unpinned: only the import limit applies.
             if not module['packet_bytes'] < 524288:
                 raise ValueError(f'{key} packet size exceeds the import limit')
             continue
@@ -90,5 +90,5 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
         print('EXPORTED', description['name'], dest, flush=True)
         comparison[key]['export_folder'] = str(dest)
     save(work / 'verification.json', comparison)
-    print('FLAT PANEL VARIANT: layout differs from the pinned release by design' if flat else 'BETA: unpinned optimised build; hashes differ from the pinned release by design' if beta else 'IDENTICAL: both accelerated blueprint.json files match the pinned release', flush=True)
+    print('DISTRICTS VARIANT: layout differs from the pinned release by design' if districts and not beta else 'FLAT PANEL VARIANT: layout differs from the pinned release by design' if flat else 'BETA: unpinned optimised build; hashes differ from the pinned release by design' if beta else 'IDENTICAL: both accelerated blueprint.json files match the pinned release', flush=True)
     return (comparison, work)

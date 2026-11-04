@@ -35,7 +35,7 @@ TERMINAL_RULES = [
     ('pixel', r'draw_|pixel|collision|terminal_pixels|scroll|target_row|row_|col_|cursor'),
     ('keyboard', r'key|presence|raw_code|code|previous_code|input_'),
 ]
-TOP_DEFAULT = dict(rv32e_cpu='bus', rv_terminal='charbuf', rv_memory_service='service')
+TOP_DEFAULT = dict(rv32e_cpu='bus', rv_terminal='charbuf', rv_memory_service='service', rv_cartridge='cart')
 TOP_RULES = dict(rv32e_cpu=CPU_RULES, rv_terminal=TERMINAL_RULES)
 DOMAIN_SECTIONS = dict(
     cpu={'alu', 'branch', 'regs', 'ram', 'text', 'decode', 'fusion', 'pc', 'bus'},
@@ -58,8 +58,16 @@ def classify(stack, target):
             return section
     return TOP_DEFAULT.get(top)
 
+def site_of(refs, nets):
+    """':signal' suffix for the labels of gates made by an assignment to these nets: 'regs(3)', 'x(5)'
+    for a single bit, 'x' for a whole vector. It has no spaces, so label prefix checks are unaffected."""
+    if not nets or nets[0] not in refs:
+        return ''
+    name = refs[nets[0]][0]
+    return ':' + (re.sub(r'\(\d+\)$', '', name) if len(nets) > 1 else name)
+
 def tag_of(label):
-    m = re.search(r' @(\w+)$', label)
+    m = re.search(r' @(\w+)(?::\S*)?$', label)
     return m[1] if m else None
 
 def assign_sections(labels, edges, members, rounds=12):
