@@ -34,3 +34,14 @@ cargo run --release --locked -- path/to/file.circuit.json
 ```
 
 Modules: `model.rs` (parsing, `Circuit` simulation, blueprint/library scanning), `overview.rs` (cluster hierarchy for 15k+ block circuits), `physics.rs`/`layout.rs` (background force layout, planar and 3D), `camera.rs` (3D projection), `viewer.rs` + `viewer/overview_ui.rs` (egui UI). The viewer starts with an empty circuit (no embedded example). Integration tests build their fixtures in code; there are no sample project files in the repo.
+
+## Simulator benchmarking and deployment (required after CPU changes)
+
+`Logic-Block-Simulator/` is a portable bundle (own Python runtime, see its README) that simulates exported blueprints with the native logic model. Run it with `Logic-Block-Simulator\runtime\python.exe hdl_workshop\native_sim_cli.py <export-folder> --ticks N --watch <port> --output <file>.json` (or `Simulator.bat`). Its `results/` output is gitignored.
+
+Whenever a change alters the CPU (firmware, `cpu*.py`, console/HDL, netlist passes) and the build succeeds:
+
+1. Build the new blueprints (see above) and run the new CORE/CONSOLE export on the simulator for a fixed tick count, timing the wall-clock run and recording simulated ticks per second. Use the same firmware workload and tick count every time so results are comparable.
+2. Compare against the previous version's recorded speed in `BENCHMARKS.md` (repo root; create it if missing). If the previous version has no entry, check out/build that previous commit first, run the same test on it, and record it before recording the new one.
+3. Record each result as a row: date, git commit, build variant (default/`--beta`/`--flat`), tick count, wall time, ticks/sec, and workload outcome (pass/fail). Report the new-vs-previous delta to the user.
+4. Once documented, **ask the user** which existing blueprint in the Scrap Mechanic blueprint folder should be overwritten, listing the candidates (folder name and the `name` in each `description.json`), with a further option to save under a new blueprint name instead. The folder is `%APPDATA%\Axolot Games\Scrap Mechanic\User\User_<steamid>\Blueprints\<UUID>`. Do not overwrite anything until the user answers; look at the target before replacing it.

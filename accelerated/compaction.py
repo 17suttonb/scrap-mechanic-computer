@@ -2,7 +2,7 @@ from collections import Counter, deque
 from copy import deepcopy
 from accelerated.hdl import Build
 
-def compact_build(build, max_consumers=1):
+def compact_build(build, max_consumers=1, beta=False):
     if max_consumers not in (1, 2):
         raise ValueError('Compaction supports one or two consumers')
     circuit = build.circuit.clone()
@@ -53,7 +53,7 @@ def compact_build(build, max_consumers=1):
         if len(targets) > 1:
             old_wires = len(parents[node]) + len(targets)
             added_wires = sum((len(inputs) - len(parents[target]) + 1 for target, inputs in sources.items()))
-            if added_wires > old_wires:
+            if added_wires > old_wires + (4 if beta else 0):
                 continue
             if any((len(children[source] - {node} | targets) > 128 for source in parents[node])):
                 continue
@@ -69,6 +69,43 @@ def compact_build(build, max_consumers=1):
         removed += 1
         pending.extend(sorted(upstream))
         pending.extend(sorted(targets))
+    double_inversions = 0
+    while beta:
+        changed = False
+        for node in sorted(circuit.nodes):
+            if node not in circuit.nodes or node in protected or node in timing or len(parents[node]) != 1:
+                continue
+            middle = next(iter(parents[node]))
+            if circuit.nodes[node]['kind'] != 'NOR' or circuit.nodes[middle]['kind'] != 'NOR' or len(parents[middle]) != 1:
+                continue
+            if 'latch ' in circuit.nodes[node]['label'] or 'latch ' in circuit.nodes[middle]['label']:
+                continue
+            source = next(iter(parents[middle]))
+            if source in timing or source in children[node] or middle in timing:
+                continue
+            if any(source in parents[c] and circuit.nodes[c]['kind'] in ('XOR', 'XNOR') for c in children[node]):
+                continue
+            if len(children[source] - {middle} | children[node]) > 128:
+                continue
+            for c in children[node]:
+                parents[c].discard(node)
+                parents[c].add(source)
+            children[source].update(children[node])
+            children[middle].discard(node)
+            del circuit.nodes[node]
+            del parents[node]
+            del children[node]
+            if not children[middle] and middle not in protected:
+                children[source].discard(middle)
+                del circuit.nodes[middle]
+                del parents[middle]
+                del children[middle]
+                removed += 1
+            removed += 1
+            double_inversions += 1
+            changed = True
+        if not changed:
+            break
     deduplicated = 0
     changed = True
     while changed:
@@ -106,5 +143,5 @@ def compact_build(build, max_consumers=1):
     circuit.edges = {(a, b) for b, inputs in parents.items() for a in inputs}
     circuit.validate()
     report = deepcopy(build.report)
-    report.update(blocks=len(circuit.nodes), wires=len(circuit.edges), gates=dict(Counter((n['kind'] for n in circuit.nodes.values()))), compaction=dict(source_blocks_before=before[0], source_wires_before=before[1], source_blocks_after=len(circuit.nodes), source_wires_after=len(circuit.edges), fused_gates=removed, inversion_folds=inversions, deduplicated_gates=deduplicated, max_consumers=max_consumers, method='Associative/inversion folding and identical-function sharing; no extra wires; exposed ports and storage retained'))
+    report.update(blocks=len(circuit.nodes), wires=len(circuit.edges), gates=dict(Counter((n['kind'] for n in circuit.nodes.values()))), compaction=dict(source_blocks_before=before[0], source_wires_before=before[1], source_blocks_after=len(circuit.nodes), source_wires_after=len(circuit.edges), fused_gates=removed, inversion_folds=inversions, double_inversions_removed=double_inversions, deduplicated_gates=deduplicated, max_consumers=max_consumers, method='Associative/inversion folding and identical-function sharing; no extra wires; exposed ports and storage retained'))
     return Build(circuit, deepcopy(build.ports), report, build.source)

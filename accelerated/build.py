@@ -18,18 +18,18 @@ from accelerated.split import prototype
 from accelerated.layout import build as layout
 from accelerated.io import read, save
 
-def build_current(package_root, output, work, flat=False):
+def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False):
     package_root = Path(package_root).resolve()
     recipe = read(package_root / 'release.json')
     work = Path(work).resolve() / str(uuid.uuid4())
     (work / 'exports').mkdir(parents=True)
-    program = assemble((package_root / 'firmware/basic.s').read_text(encoding='utf-8'))
-    if hashlib.sha256(program.image).hexdigest() != recipe['firmware_sha256']:
+    program = assemble((package_root / 'firmware/basic.s').read_text(encoding='utf-8'), compact_li=beta)
+    if hashlib.sha256(program.image).hexdigest() != recipe['firmware_sha256'] and not beta:
         raise ValueError('Firmware differs from the current release')
     display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True)
-    factory = partial(cpu, data_rom=False)
+    factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts)
     result = compile_system(program.image, factory, complete_service, display)
-    result = compact_build(terminal_cpu(result, ('service_capture', 'service_commit', 'keys', 'terminal_pixels', 'busy', 'full')), max_consumers=2)
+    result = compact_build(terminal_cpu(result, ('service_capture', 'service_commit', 'keys', 'terminal_pixels', 'busy', 'full')), max_consumers=2, beta=beta)
     result = compact(result)
     result.circuit.name = 'RV32E - private resident text core'
     result.report['terminal_title'] = 'FAST MODULAR'
@@ -55,7 +55,7 @@ def build_current(package_root, output, work, flat=False):
     for key, module in modules.items():
         expected = recipe['modules'][key]
         comparison[key] = dict(expected=expected['blueprint_sha256'], rebuilt=module['blueprint_sha256'], identical=expected['blueprint_sha256'] == module['blueprint_sha256'])
-        if flat:
+        if flat or beta:
             # The flat panel layout is an unpinned variant: only the import limit applies.
             if not module['packet_bytes'] < 524288:
                 raise ValueError(f'{key} packet size exceeds the import limit')
@@ -76,5 +76,5 @@ def build_current(package_root, output, work, flat=False):
         print('EXPORTED', description['name'], dest, flush=True)
         comparison[key]['export_folder'] = str(dest)
     save(work / 'verification.json', comparison)
-    print('FLAT PANEL VARIANT: layout differs from the pinned release by design' if flat else 'IDENTICAL: both accelerated blueprint.json files match the pinned release', flush=True)
+    print('FLAT PANEL VARIANT: layout differs from the pinned release by design' if flat else 'BETA: unpinned optimised build; hashes differ from the pinned release by design' if beta else 'IDENTICAL: both accelerated blueprint.json files match the pinned release', flush=True)
     return (comparison, work)
