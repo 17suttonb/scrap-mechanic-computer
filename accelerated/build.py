@@ -82,7 +82,7 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
         description = read(dest / 'description.json')
         description['localId'] = dest.name
         save(dest / 'description.json', description)
-        shutil.copy2(package_root / 'ASSEMBLY.md', dest / 'ASSEMBLY.md')
+        shutil.copy2(package_root / ('cartridge/ASSEMBLY.md' if cart_module else 'ASSEMBLY.md'), dest / 'ASSEMBLY.md')
         print('EXPORTED', description['name'], dest, flush=True)
         comparison[key]['export_folder'] = str(dest)
     save(work / 'verification.json', comparison)

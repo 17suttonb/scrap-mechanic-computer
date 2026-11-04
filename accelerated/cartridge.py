@@ -5,7 +5,7 @@ blueprint, that answers the CPU's fetch address with the pre-decoded instruction
 ROM would have produced.  Execution switches to it by jumping into the cartridge address window.
 
     CPU -> cartridge   cart_address (10)            program counter bits 11..2
-    cartridge -> CPU   cart_ra/rb/rd (4 each)       register numbers
+    cartridge -> CPU   cart_sa/sb/sw (15 each)      one-hot read A, read B and write register x1..x15
                        cart_imm (12)                sign-extended by the CPU
                        cart_target (10)             branch / jal target, bits 11..2
                        cart_f3 (3), cart_aluop (3)
@@ -28,7 +28,7 @@ WORDS = 512                     # cartridge window: 512 words, PC bits 11..2 wit
 ADDRESS_BITS = 10
 
 # field name -> width, in the order the interface is documented and laid out
-FIELDS = dict(ra=4, rb=4, rd=4, imm=12, target=10, f3=3, aluop=3, legal=1, load=1, store=1, branch=1, jal=1, jalr=1, immediate=1, compare=1, static=1)
+FIELDS = dict(sa=15, sb=15, sw=15, imm=12, target=10, f3=3, aluop=3, legal=1, load=1, store=1, branch=1, jal=1, jalr=1, immediate=1, compare=1, static=1)
 
 
 def combined_image(firmware, cartridge):
@@ -36,6 +36,11 @@ def combined_image(firmware, cartridge):
     assert len(firmware) <= BASE, f'firmware ({len(firmware)} bytes) overlaps the cartridge window at {BASE:#x}'
     assert len(cartridge) % 4 == 0 and 0 < len(cartridge) <= WORDS * 4
     return firmware + bytes(BASE - len(firmware)) + cartridge
+
+
+def onehot(register):
+    """Bit k set for register k+1; x0 selects nothing."""
+    return 1 << register - 1 if register else 0
 
 
 def rows(cartridge):
@@ -61,7 +66,7 @@ def rows(cartridge):
         target = r['target'] if r['branch'] or r['jal'] else 0
         if target and not BASE <= target < BASE + WORDS * 4:
             raise ValueError(f'branch target {target:#x} leaves the cartridge window: {where}')
-        result.append(dict(ra=r['ra'], rb=r['rb'], rd=r['rd'], imm=low, target=target >> 2 & 1023, f3=r['f3'], aluop=r['aluop'], legal=1, load=r['load'], store=r['store'], branch=r['branch'], jal=r['jal'], jalr=r['jalr'], immediate=r['immediate'], compare=r['compare'], static=int(bool((r['load'] or r['store']) and r['ra'] == 0))))
+        result.append(dict(sa=onehot(r['ra']), sb=onehot(r['rb']), sw=onehot(r['rd']), imm=low, target=target >> 2 & 1023, f3=r['f3'], aluop=r['aluop'], legal=1, load=r['load'], store=r['store'], branch=r['branch'], jal=r['jal'], jalr=r['jalr'], immediate=r['immediate'], compare=r['compare'], static=int(bool((r['load'] or r['store']) and r['ra'] == 0))))
     return result
 
 
@@ -104,7 +109,7 @@ def build(cartridge):
 
 # ---- CPU side ---------------------------------------------------------------------------------
 
-CPU_PORTS = 'cart_ra,cart_rb,cart_rd:in bit_vector(3 downto 0);cart_imm:in bit_vector(11 downto 0);cart_target:in bit_vector(9 downto 0);cart_f3,cart_aluop:in bit_vector(2 downto 0);cart_legal,cart_load,cart_store,cart_branch,cart_jal,cart_jalr,cart_immediate,cart_compare,cart_static:in bit;cart_address:out bit_vector(9 downto 0);'
+CPU_PORTS = 'cart_sa,cart_sb,cart_sw:in bit_vector(14 downto 0);cart_imm:in bit_vector(11 downto 0);cart_target:in bit_vector(9 downto 0);cart_f3,cart_aluop:in bit_vector(2 downto 0);cart_legal,cart_load,cart_store,cart_branch,cart_jal,cart_jalr,cart_immediate,cart_compare,cart_static:in bit;cart_address:out bit_vector(9 downto 0);'
 
 
 def wrapped(expression):
@@ -138,7 +143,7 @@ def cpu_source(text):
                 return f'{m[1]}or_reduce({rhs[len("or_reduce("):-1]} & {term});'
             return f'{m[1]}({rhs}) or {term};'
         text = pattern.sub(merge, text)
-    for name, width in (('ra', 4), ('rb', 4), ('rd', 4), ('f3', 3), ('aluop', 3)):
+    for name, width in (('f3', 3), ('aluop', 3)):
         for bit in range(width):
             add('d_' + name, bit, f'cart_{name}({bit})')
     for bit in range(32):
@@ -148,13 +153,13 @@ def cpu_source(text):
     for name, field in flags.items():
         add('d_' + name, None, 'cart_' + field)
     for r in range(1, 16):
-        for key, field in (('a', 'ra'), ('b', 'rb')):
+        for key, field in (('a', 'sa'), ('b', 'sb')):
             pattern = re.compile(rf'\b(select_{key}\({r}\) <= )([^;]*);')
             assert len(pattern.findall(text)) == 1, (key, r, len(pattern.findall(text)))
-            text = pattern.sub(lambda m: f'{m[1]}({m[2]}) or (cart_{field} = bits({r},4));', text)
+            text = pattern.sub(lambda m: f'{m[1]}({m[2]}) or cart_{field}({r - 1});', text)
         pattern = re.compile(rf'\b(select_write\({r}\) <= )([^;]*);')
         assert len(pattern.findall(text)) == 1, ('write', r, len(pattern.findall(text)))
-        text = pattern.sub(lambda m: f'{m[1]}({m[2]}) or ((cart_rd = bits({r},4)) and execute_ok);', text)
+        text = pattern.sub(lambda m: f'{m[1]}({m[2]}) or (cart_sw({r - 1}) and execute_ok);', text)
     old = '  region_ram <= address(31 downto 6) = bits(64,26);'
     assert text.count(old) == 1
     # the cartridge addresses the 64-byte RAM at 0..63, the firmware at 4096..4159

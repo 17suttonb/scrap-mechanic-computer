@@ -22,6 +22,10 @@ The build **enforces a pinned release**: `release.json` holds the firmware hash,
 
 `ASSEMBLY.md` is copied into each exported blueprint folder (in-game weld/wire instructions).
 
+### Program cartridge (`--beta` only)
+
+`--beta` builds a third blueprint, CARTRIDGE 3 of 3, holding the compiled Snake game (`cartridge/snake.c` -> `cartridge/snake.bin`); the CPU runs it when `S` ENTER is typed at the BASIC prompt. `accelerated/cartridge.py` generates the cartridge netlist and patches the CPU HDL; `--no-cartridge` or `--cartridge FILE` change it. Design, limits and measurements: `docs/cartridge.md`. Rebuild `snake.bin` with `python cartridge/compile.py` from a Python that has `ziglang` installed (not needed to build blueprints). `python -I cartridge/test_snake.py` plays the binary on a host RV32E simulator; `cartridge/sim_snake.py` drives a joined export in the Logic-Block-Simulator. Cartridge code may not use `lui`/`auipc`/shifts/`x8`.
+
 ## Rust viewer (`circuit_viewer/circuit_viewer/`)
 
 Read-only egui/eframe viewer for `scrap-circuit` v1 project files and version-4 `blueprint.json` exports. Needs Rust 1.85+ (edition 2024) and MSVC build tools. Run from that directory (paths in the README use `circuit_viewer/Cargo.toml` from a parent layout that is not in this repo):
