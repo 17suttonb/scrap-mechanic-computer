@@ -93,6 +93,7 @@ back to 20/6/12/6 in-game; no rebuild is needed.
 
 ## Tools
 
+* `fast_sim/` is a Rust port of the simulator's run loop, roughly 260 times faster than the Python one, which stays the authority. Build it with `cargo build --release` there. `fast_sim/verify.py` compares every controller's state against the Python model, on random circuits and on an export.
 * `bench_commands.py` times BASIC commands on any build and decodes the screen. It accepts a folder of module blueprints
   with link maps, so it can run builds without source, and `--cpu-ticks` overrides the clock for a sweep.
 * `cartridge/sim_snake.py` measures Snake's load time.

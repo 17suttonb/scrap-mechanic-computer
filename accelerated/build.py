@@ -20,7 +20,7 @@ from accelerated.layout import build as layout
 from accelerated.io import read, save
 from accelerated.cartridge import combined_image, build as build_cartridge
 
-def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0, cartridge=None, cpu_ticks=None):
+def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0, cartridge=None, cpu_ticks=None, screen_rows=4):
     package_root = Path(package_root).resolve()
     recipe = read(package_root / 'release.json')
     if cpu_ticks:
@@ -39,7 +39,7 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
         cartridge = Path(cartridge).read_bytes()
         program = replace(program, image=combined_image(program.image, cartridge))
         cart_module = build_cartridge(cartridge)
-    display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True, key_queue=key_queue, screen=cart_module is not None)
+    display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True, key_queue=key_queue, screen=cart_module is not None, rows=screen_rows)
     factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts, cartridge=cartridge)
     result = compile_system(program.image, factory, complete_service, display, cart_module)
     cart_ports = tuple(name for name in result.ports if name.startswith('cart_'))

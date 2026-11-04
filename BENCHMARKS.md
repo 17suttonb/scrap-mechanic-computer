@@ -35,3 +35,12 @@ Fast clock and cartridge mode (branch `snake-fast`), one session, two runs each,
 | 2026-11-04 | snake-fast | `--beta` with cartridge, C33 | 7a8aa3de5076 | 20000 | 66.80 / 59.38 | 299.4 / 336.8 | -33% (mean 318 vs 481) |
 
 Host simulation is slower because the CPU clock runs about 1.5 times as often per update, so more gates switch. The machine was busier than for earlier rows. This measures simulator speed, not machine speed: command times are in docs/fast-cpu.md (897.6 s against 1228.3 s for the same 14 commands).
+
+8-row screen, flat layout, side wrap, `Q` head (branch `snake-fast`, uncommitted), same idle workload, no halt or fault. `bench_sim.py --fast` uses the Rust simulator, which matched the Python model at every check (`fast_sim/verify.py`):
+
+| Date | Commit | Variant | Joined blueprint sha256 (prefix) | Ticks | Simulator | Wall (s) | Ticks/sec | vs. previous |
+|---|---|---|---|---|---|---|---|---|
+| 2026-11-04 | f14e496 | `--beta` with cartridge, C33, 4 rows (re-measured) | 7a8aa3de5076 | 20000 | Python | 29.86 | 669.9 | baseline |
+| 2026-11-04 | snake-fast | `--beta --flat` with cartridge, C33, 8 rows | 848f8f236b07 | 20000 | Python | 31.51 | 634.7 | -5.3% |
+| 2026-11-04 | f14e496 | `--beta` with cartridge, C33, 4 rows | 7a8aa3de5076 | 20000 | Rust | 0.106 | 187910 | 281 times the Python speed |
+| 2026-11-04 | snake-fast | `--beta --flat` with cartridge, C33, 8 rows | 848f8f236b07 | 20000 | Rust | 0.098 | 204351 | 322 times the Python speed |

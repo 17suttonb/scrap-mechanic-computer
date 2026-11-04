@@ -78,7 +78,7 @@ class Machine:
         for row in range(4):
             self.ram[row * 16 + 12] = self.ram[row * 16 + 15] = 3
         self.x = [0] * 32
-        self.x[10:15] = [21, 20, 1, 38, 2]          # the arguments the firmware passes
+        self.x[10:16] = [21, 20, 1, 38, 2, 4]          # the arguments the firmware passes
         self.pc = base
         self.keys = list(keys)
         self.retired = 0
@@ -86,7 +86,7 @@ class Machine:
 
     def screen(self):
         """What the console shows: RAM cells through the display map."""
-        glyph = lambda v: '.' if v == 0 else '+' if v == 2 else 'O'
+        glyph = lambda v: '.' if v == 0 else '+' if v == 2 else 'Q' if v == 4 else 'O'
         return [''.join(glyph(self.ram[r * 16 + c]) for c in range(12)) for r in range(4)]
 
     def load(self, a, size, signed, static=False):

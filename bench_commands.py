@@ -13,8 +13,8 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / 'Logic-Block-Simulator' / 'hdl_workshop'))
-from native_simulator import NativeLogicSimulator  # noqa: E402
+sys.path.insert(0, str(ROOT / 'fast_sim'))
+from fast_simulator import make_simulator  # noqa: E402
 
 FONT = {}
 exec((ROOT / 'accelerated' / 'font5x7.py').read_text(encoding='utf-8'), FONT)
@@ -88,7 +88,7 @@ class Machine:
         self.keys = keys_by_position(bp)
         self.pixel_map = pixels_by_position(bp)
         self.pixels = list(self.pixel_map.values())
-        self.sim = NativeLogicSimulator(bp, input_mode='controller')
+        self.sim = make_simulator(bp)
         self.sim.request_input(reset, True, at_tick=self.sim.time + 1)
         self.sim.request_input(reset, False, at_tick=self.sim.time + 481)
         self.sim.request_input(run, True, at_tick=self.sim.time + 501)

@@ -5,24 +5,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from rvtools import Machine
 
 BASE = 0x800
-HOT_LOOP = 9
+HOT_LOOP = 10
 image = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parent / 'snake.bin').read_bytes()
-
-
-def play(keys_at_board=None, limit=200000):
-    """Run to game over. keys_at_board maps a move number to a key tapped during that move.
-    Returns the boards seen, one per move, and the machine."""
-    keys_at_board = keys_at_board or {}
-    m = Machine(image, BASE)
-    boards, last = [], None
-    while not m.stop and m.retired < limit:
-        m.step()
-        if m.pc == BASE + POLL:
-            board = m.screen()
-            boards.append(board)
-            if len(boards) in keys_at_board:
-                m.keys.append(keys_at_board[len(boards)])
-    return boards, m
 
 
 def find_poll():
@@ -35,45 +19,81 @@ def find_poll():
 
 
 POLL = find_poll()
-count = lambda board, ch: sum(row.count(ch) for row in board)
 
-# hands off: runs right along row 1 into the wall at column 12
+
+def play(keys=None, limit=3000, prepare=None):
+    """Run the game. keys maps a move number to a key tapped after that move. Returns one board per
+    move, and the machine, which has stopped if the game ended."""
+    keys = keys or {}
+    m = Machine(image, BASE)
+    if prepare:
+        prepare(m)
+    boards = []
+    while not m.stop and m.retired < limit:
+        m.step()
+        if m.pc == BASE + POLL:
+            boards.append(m.screen())
+            if len(boards) in keys:
+                m.keys.append(keys[len(boards)])
+    return boards, m
+
+
+def count(board, ch):
+    return sum(row.count(ch) for row in board)
+
+
+def head(board):
+    return next((row.index('Q'), y) for y, row in enumerate(board) if 'Q' in row)
+
+
+def walls_intact(m):
+    return all(m.ram[r * 16 + 12] == 3 and m.ram[r * 16 + 15] == 3 for r in range(4))
+
+
+# hands off: the head is one Q, the body is O, and the row wraps at both ends of the screen
 boards, m = play()
-assert m.stop
-assert boards[0][1] == '.....OO.....', boards[0]
+assert not m.stop
+assert boards[0][1] == '.....OQ.....', boards[0]
 assert boards[0][2][6] == '+'
-assert boards[-1][1] == '..........OO', boards[-1]
-assert all(count(b, 'O') == 2 for b in boards), boards
+assert all(count(b, 'Q') == 1 and count(b, 'O') == 1 for b in boards), boards[:12]
+columns = [head(b)[0] for b in boards[:14]]
+assert columns == [(6 + n) % 12 for n in range(14)], columns
+assert boards[5][1] == '..........OQ' and boards[6][1] == 'Q..........O' and boards[7][1] == 'OQ..........', boards[5:8]
+assert walls_intact(m), m.ram.hex()
 
-# a turn takes effect on the next move: down from column 6 reaches row 2
-boards, m = play({1: 'S'})
-assert boards[1][2][6] == 'O', boards[1]
+# wrapping left
+boards, m = play({1: 'W', 2: 'A'})
+columns = [head(b)[0] for b in boards[2:12]]
+assert columns == [(5 - n) % 12 for n in range(10)], columns
+assert not m.stop and walls_intact(m)
 
-# eating the food at (6, 2) grows the snake and places new food on a free cell
+# a turn takes effect on the next move: down from column 6 reaches the food in row 2
 boards, m = play({1: 'S'})
-lengths = [count(b, 'O') for b in boards]
-assert max(lengths) == 3 and lengths[0] == 2, lengths
+assert boards[1][2][6] == 'Q', boards[1]
+
+# eating grows the snake and places new food on a free cell
+lengths = [count(b, 'O') + count(b, 'Q') for b in boards]
+assert lengths[0] == 2 and max(lengths) == 3, lengths
 assert all(count(b, '+') == 1 for b in boards), boards
+
+# top and bottom wrap
+boards, m = play({1: 'W'})
+assert head(boards[1]) == (6, 0) and head(boards[2]) == (6, 3) and not m.stop, boards[2]
 
 # reversal and unknown keys are ignored
 plain = play()[0]
-assert play({2: 'A'})[0] == plain
-assert play({2: 'Q'})[0] == plain
+assert play({2: 'A'})[0][:40] == plain[:40]
+assert play({2: 'Q'})[0][:40] == plain[:40]
 
-# the top and bottom edges wrap: up from row 1 comes back on row 3, still running
-boards, m = play({1: 'W'}, limit=2000)
-assert boards[2][0][6] == 'O' and boards[3][3][6] == 'O' and not m.stop, boards[3]
 
-# the left wall ends the game
-boards, m = play({1: 'W', 2: 'A'})
-assert m.stop and boards[-1][0][0] == 'O', boards[-1]
+# running into a body cell ends the game, and the head is drawn on the cell it hit
+def body_ahead(m):
+    m.ram[16 + 9] = 1
 
-# running into a body cell ends the game
-m = Machine(image, BASE)
-m.ram[16 + 9] = 1
-while not m.stop and m.retired < 1000:
-    m.step()
-assert m.stop and m.x[10] == 16 + 9, m.x[10]
+
+boards, m = play(prepare=body_ahead)
+assert m.stop and m.x[10] & 63 == 16 + 9, m.x[10]
+assert m.screen()[1][9] == 'Q', m.screen()
 
 # cost of one move in steady state
 m = Machine(image, BASE)

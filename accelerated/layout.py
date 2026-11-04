@@ -12,7 +12,7 @@ from accelerated.io import read, save
 from accelerated.packet import Encoder
 import lz4.block
 
-FLAT_CONSOLE_X = 60
+FLAT_CONSOLE_RIGHT = -19     # last column of the console's logic wall, just left of the screen frame
 FLAT_CONSOLE_Y = 20
 FLAT_CORE_Y = 44
 FLAT_CORE_TIMER_Y = 36
@@ -79,7 +79,7 @@ def build(root, flat=False):
             section_colour[domain] = sec.section_colors(sorted(counts, key=lambda k: (-counts[k], k)), fixed)
     for domain, origin in [('terminal', (-15, 3, 1)), ('cpu', (-15, 40, 1))] + ([('cartridge', (-15, CART_CUBE_Y, 1))] if cart_links else []):
         ids = sorted((i for i in parts if owner[i] == domain and i not in exposed))
-        if flat and domain != 'cartridge':
+        if flat:
             # One upright wall (x-z plane, bottom row on the ground plane), twice as wide as tall.
             # Each logic block is turned 180 degrees about Z; the origin shifts by (1, 1) so the
             # occupied cell stays the grid cell.
@@ -88,7 +88,7 @@ def build(root, flat=False):
                 width += 1
             for n, i in enumerate(ids):
                 row, col = divmod(n, width)
-                x0, y0 = (FLAT_CONSOLE_X, FLAT_CONSOLE_Y) if domain == 'terminal' else (origin[0], FLAT_CORE_Y)
+                x0, y0 = {'terminal': (FLAT_CONSOLE_RIGHT - width, FLAT_CONSOLE_Y), 'cartridge': (origin[0], CART_CUBE_Y)}.get(domain, (origin[0], FLAT_CORE_Y))
                 parts[i].update(pos=dict(x=x0 + col + 1, y=y0 + 1, z=1 + row), xaxis=-1, zaxis=3)
                 if section_of.get(i):
                     parts[i]['color'] = section_colour[domain][section_of[i]]
@@ -181,21 +181,21 @@ def build(root, flat=False):
             label('RUN RESET', 3, 32)
         if domain == 'terminal':
             block(-17, 0, 2, 74)
-            block(-17, 0, 35, 74)
-            block(-17, 0, 3, 1, 1, 32)
-            block(56, 0, 3, 1, 1, 32)
+            block(-17, 0, term['height'] + 3, 74)
+            block(-17, 0, 3, 1, 1, term['height'])
+            block(56, 0, 3, 1, 1, term['height'])
             block(-17, 0, 1)
             block(56, 0, 1)
-            label('FAST BASIC', 16, 1, 36, upright=True)
+            label('FAST BASIC', 16, 1, term['height'] + 4, upright=True)
             for n, t in enumerate(svc['timers']):
                 label('IO ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 10)
         elif domain == 'cpu':
             label('CORE MODULE', 0, FLAT_CORE_TIMER_Y - 2 if flat else 70)
             for n, t in enumerate(clock['timers']):
                 label('CPU ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, FLAT_CORE_TIMER_Y + 3 if flat else 75)
-        if flat:
+        if flat and domain != 'cartridge':
             # Colour key along the foot of the wall, each sign painted in its section's colour.
-            x = -15 if domain == 'cpu' else FLAT_CONSOLE_X
+            x = -15 if domain == 'cpu' else FLAT_CONSOLE_RIGHT - flat_width[domain]
             for section, count in section_count[domain].most_common():
                 label(sec.TITLES.get(section, section.upper()), x, FLAT_CORE_Y - 2 if domain == 'cpu' else FLAT_CONSOLE_Y - 3)
                 children[-1]['color'] = section_colour[domain][section]
@@ -232,7 +232,7 @@ def build(root, flat=False):
         stats = dict(parts=len(children), logic_blocks=sum((p['shapeId'] == GATE_UUID for p in children)), timers=sum((p['shapeId'] == TIMER_UUID for p in children)), wires=sum((len(p.get('controller', {}).get('controllers') or []) for p in children)))
         row = dict(folder=str(folder.resolve()), blueprint_name=description['name'], blueprint_sha256=hashlib.sha256(data).hexdigest(), packet_bytes=packet, headroom_bytes=524288 - packet, stats=stats, support=support, domain=domain)
         save(folder / 'link-map.json', dict(links=links + cart_links, module=domain))
-        if flat:
+        if flat and domain != 'cartridge':
             save(folder / 'section-map.json', dict(sections={k: dict(title=sec.TITLES.get(k, k), colour=section_colour[domain][k], logic_blocks=n) for k, n in section_count[domain].most_common()}))
         save(folder / 'module-report.json', row)
         module_records[domain] = row

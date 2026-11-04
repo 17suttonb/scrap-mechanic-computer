@@ -651,8 +651,8 @@ class Elaborator:
             declared = self.bounds(bounds, env)
             if not declared:
                 raise HDLError('Null-width vectors are not supported.', name)
-            if len(declared) > 4096:
-                raise HDLError('Vectors are limited to 4,096 bits.', name)
+            if len(declared) > 8192:
+                raise HDLError('Vectors are limited to 8,192 bits.', name)
             return HDLType(tuple(reversed(declared)))
         kind = env.get(name.text)
         if not isinstance(kind, HDLType) or bounds:

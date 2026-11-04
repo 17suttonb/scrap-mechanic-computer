@@ -57,11 +57,12 @@ enter_cartridge:
     sw x0,48(x8)
     sw x0,52(x8)
     sw x0,56(x8)
-    addi x10,x0,21      ; arguments: head, tail, step, food, food mark
+    addi x10,x0,21      ; arguments: head, tail, step, food, food mark, head mark
     addi x11,x0,20
     addi x12,x0,1
     addi x13,x0,38
     addi x14,x0,2
+    addi x15,x0,4
     j 2048
 direct_general_fresh:
     mv x4,x1

@@ -43,12 +43,9 @@ def main():
         last_state = state
         rows = m.text()
         cells = ''.join(rows)
-        complete = rows[0] != '' and len(rows[0]) == 12 and cells.count('+') == 1 and cells.count('O') >= 2 and all(len(r) == 12 for r in rows) and '#' not in cells
+        complete = cells.count('+') == 1 and cells.count('Q') == 1 and all(len(r) == 12 for r in rows[:4]) and '#' not in cells
         if not complete or rows == previous:
             continue
-        # a move is two cell writes in consecutive instructions: wait for the head and tail to both land
-        if previous is not None and sum(r.count('O') for r in rows) > sum(r.count('O') for r in previous) and cells.count('+') == ''.join(previous).count('+') and boards and sum(r.count('O') for r in rows) != grown(previous):
-            pass
         previous = rows
         boards += 1
         times.append(m.sim.time)
@@ -62,10 +59,6 @@ def main():
     if len(times) > 2:
         print(f'screen changes: {len(times)}, last at +{(times[-1] - enter) / 40:.2f} s')
     return 0
-
-
-def grown(rows):
-    return sum(r.count('O') for r in rows) + 1
 
 
 if __name__ == '__main__':

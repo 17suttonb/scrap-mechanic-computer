@@ -12,7 +12,38 @@ def bitmap(text, cell, font=FONT, basis=None):
     basis = basis or [(x, y) for y in range(len(glyph)) for x in range(len(glyph[0]))]
     return sum((int(glyph[y][x]) << i for i, (x, y) in enumerate(basis)))
 
-def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, basis=None, glyph_mapping=None):
+def taller_pages(rows, screen_rows):
+    """Text pages are four rows; any further screen rows start blank."""
+    return tuple(rows) + (' ' * len(rows[0]),) * (screen_rows - 4)
+
+def widen_rows(s, rows):
+    """Give the row counters three bits and move the last row from 3 to rows - 1."""
+    for old, new in (('target_row,clear_row:bit_vector(1 downto 0)', 'target_row,clear_row:bit_vector(2 downto 0)'),
+                     ('clear_row_stage:bit_vector(1 downto 0)', 'clear_row_stage:bit_vector(2 downto 0)'),
+                     ('cursor_row:bit_vector(1 downto 0)', 'cursor_row:bit_vector(2 downto 0)'),
+                     ('emit_addr,emit_addr_stage:bit_vector(5 downto 0)', 'emit_addr,emit_addr_stage:bit_vector(6 downto 0)'),
+                     ('print_row,command_row,back_row:bit_vector(1 downto 0)', 'print_row,command_row,back_row:bit_vector(2 downto 0)'),
+                     ('row_plus,row_minus:bit_vector(1 downto 0)', 'row_plus,row_minus:bit_vector(2 downto 0)'),
+                     ('draw_row:bit_vector(1 downto 0)', 'draw_row:bit_vector(2 downto 0)'),
+                     ('clear_flags:bit_vector(3 downto 0)', f'clear_flags:bit_vector({rows - 1} downto 0)')):
+        assert old in s, old
+        s = s.replace(old, new)
+    # Above the last row the counter really steps on a prompt, and must settle before the console's
+    # capture pulse: test the settled data bits first with tx last, and drop a priority that the
+    # events' exclusivity makes unnecessary.
+    s, n = re.subn(r'  before_line <= \(prompt_event or error_event or number_event\) and ', '  before_line <= tx and (gpio(17) or (gpio(7 downto 0) = bits(2,8)) or (gpio(7 downto 0) = bits(3,8))) and ', s)
+    assert n == 1
+    old = '  row_masks(3) <= row_cases(3) and not or_reduce(row_cases(2 downto 0));'
+    assert old in s
+    s = s.replace(old, '  row_masks(3) <= row_cases(3);')
+    names = re.compile(r'\b(?:row_q|row_next|row_stage|row_store|base_q|base_next|target_row|clear_row|draw_row|print_row|command_row|back_row)\b')
+    lines = s.split('\n')
+    for n, line in enumerate(lines):
+        if names.search(line) and 'signal' not in line:
+            lines[n] = re.sub(r'bits\((\d),2\)', lambda m: f"bits({rows - 1 if m[1] == '3' else m[1]},3)", line)
+    return '\n'.join(lines)
+
+def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, basis=None, glyph_mapping=None, rows=4):
     gw = len(font[' '][0])
     gh = len(font[' '])
     cw = gw + 1
@@ -22,9 +53,10 @@ def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, b
     glyph_mapping = glyph_mapping or [1 << i for i in range(gw * gh)]
     cb = (columns - 1).bit_length()
     ab = cb + 2
-    count = columns * 4
+    rb = (rows - 1).bit_length()
+    count = columns * rows
     width = columns * cw
-    height = 4 * ch
+    height = rows * ch
     boot_text = pages(boot_text, columns)
     help_text = pages(help_text, columns)
     fault = pages(FAULT, columns)
@@ -58,16 +90,19 @@ def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, b
     s += '  row_cases(0) <= boot_event;row_cases(1) <= help_event;\n  row_cases(2) <= key_back and (col_q = bits(0,' + str(cb) + '));\n  row_cases(3) <= advance and (row_q /= bits(3,2));\n  row_masks(0) <= row_cases(0);row_masks(4) <= not or_reduce(row_cases);\n  row_plus(0) <= not row_q(0);row_plus(1) <= row_q(1) xor row_q(0);\n  row_minus(0) <= not row_q(0);row_minus(1) <= row_q(1) xor not row_q(0);\n'
     for i in range(1, 4):
         s += f'  row_masks({i}) <= row_cases({i}) and not or_reduce(row_cases({i - 1} downto 0));\n'
-    for bit in range(2):
-        terms = [f'(row_masks(2) and row_minus({bit}))', f'(row_masks(3) and row_plus({bit}))', f'(row_masks(4) and row_q({bit}))', 'row_masks(1)']
+    if rb > 2:
+        s += '  row_plus(2) <= row_q(2) xor and_reduce(row_q(1 downto 0));\n  row_minus(2) <= row_q(2) xor not or_reduce(row_q(1 downto 0));\n'
+    for bit in range(rb):
+        terms = [f'(row_masks(2) and row_minus({bit}))', f'(row_masks(3) and row_plus({bit}))', f'(row_masks(4) and row_q({bit}))'] + (['row_masks(1)'] if bit < 2 else [])
         if bit == 1:
             terms.append('row_masks(0)')
         s += f'  row_next({bit}) <= or_reduce(' + ' & '.join(terms) + ');\n'
     s = s.replace('else row_q & col_q;', 'else draw_row & col_q;')
     s += '  draw_row <= row_q - bits(1,2) when rotate and not before_line and not newline_event else row_q;\n  scroll_stage <= latch(rotate,cap_en,reset);\n  fault_pending <= faulted and not fault_seen;\n  fault_stage <= latch(fault_pending,cap_en,reset);\n  fault_seen <= latch(faulted,com_en,reset);\n  pixel_running <= not reset;\n  pixel_page <= page_stage when not fault_stage else bits(0,2);\n'
     s += f'  print_row <= row_q - bits(1,2) when (row_q = bits(3,2)) and (col_q = bits({columns - 1},{cb})) else row_q;\n  command_row <= row_q + bits(1,2) when (row_q /= bits(3,2)) and (col_q /= bits(0,{cb})) else row_q;\n  back_row <= row_q - bits(1,2) when col_q = bits(0,{cb}) else row_q;\n  back_col <= bits({columns - 1},{cb}) when col_q = bits(0,{cb}) else col_q - bits(1,{cb});\n'
-    for row in range(4):
-        s += f'  clear_flags({row}) <= latch(advance and (clear_row = bits({row},2)),cap_en,reset);\n'
+    boot_text, help_text, fault = (taller_pages(page, rows) for page in (boot_text, help_text, fault))
+    for row in range(rows):
+        s += f'  clear_flags({row}) <= latch(advance and (clear_row = bits({row},{rb})),cap_en,reset);\n'
     s += '  font_code(0) <= code(5 downto 0) xor bits(32,6);\n  font_code(1) <= gpio(5 downto 0) xor bits(32,6);\n  font_code(2) <= "01" & bcd(11 downto 8);\n  font_code(3) <= "01" & bcd(7 downto 4);\n  font_code(4) <= "01" & bcd(3 downto 0);\n'
     for lane in range(5):
         for code in range(64):
@@ -103,11 +138,11 @@ def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, b
                 s += f"  draw_select({j})({i}) <= '0';\n"
                 continue
             if j:
-                expr = f'(number_event' + (' or error_event' if j < 3 else '') + f') and (command_row = bits({row},2))'
+                expr = f'(number_event' + (' or error_event' if j < 3 else '') + f') and (command_row = bits({row},{rb}))'
             else:
-                terms = [f'((key_print or cpu_print) and (print_row = bits({row},2)) and (col_q = bits({col},{cb})))', f'(key_back and (back_row = bits({row},2)) and (back_col = bits({col},{cb})))']
+                terms = [f'((key_print or cpu_print) and (print_row = bits({row},{rb})) and (col_q = bits({col},{cb})))', f'(key_back and (back_row = bits({row},{rb})) and (back_col = bits({col},{cb})))']
                 if col == 0:
-                    terms.append(f'((number_event or error_event or prompt_event) and (command_row = bits({row},2)))')
+                    terms.append(f'((number_event or error_event or prompt_event) and (command_row = bits({row},{rb})))')
                 expr = 'or_reduce(' + ' & '.join(terms) + ')'
             s += f'  draw_select({j})({i}) <= latch({expr},cap_en,reset);\n'
         writes = {j: f'draw_select({j})({i})' for j in lanes}
@@ -117,7 +152,7 @@ def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, b
         s += f'  pixel_value({i}) <= pixel_q({i}) xor bits({boot},{bits});\n'
         for bit in range(bits):
             terms = [f'(font_pixels({j})({bit}) and {cond})' for j, cond in writes.items()]
-            if row < 3:
+            if row < rows - 1:
                 terms.append(f'(scroll_select({i}) and pixel_value({i + columns})({bit}))')
             if boot >> bit & 1:
                 terms.append('pixel_page(0)')
@@ -135,7 +170,7 @@ def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, b
             if x % cw == gw:
                 expr = "'0'"
             elif y % ch == gh:
-                expr = f'(cursor_row = bits({y // ch},2)) and (col_q = bits({x // cw},{cb})) and not ready and not faulted'
+                expr = f'(cursor_row = bits({y // ch},{rb})) and (col_q = bits({x // cw},{cb})) and not ready and not faulted'
             else:
                 mask = glyph_mapping[y % ch * gw + x % cw]
                 cell = y // ch * columns + x // cw
@@ -144,6 +179,8 @@ def source(boot_text, help_text, columns=16, expose_length=True, *, font=FONT, b
             s += f'  terminal_pixels({y * width + x}) <= {expr};\n'
     if expose_length:
         s += '  keyboard_length <= length_q;\n'
+    if rows != 4:
+        s = widen_rows(s, rows)
     return s + 'end;\n'
 
 @contextmanager

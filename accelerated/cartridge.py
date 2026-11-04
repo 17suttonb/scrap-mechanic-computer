@@ -51,7 +51,8 @@ def rows(cartridge):
 
     * `lb t,0(x); sb r,0(x)` is a swap: the CPU reads during capture and writes during commit.
     * `lb t,-240(zero); blt/bge t,zero,target` loads the status and branches on the ready flag
-      directly, without waiting for the load to reach a register."""
+      directly, without waiting for the load to reach a register.
+    * `sb r,0(x); add x,x,r` stores through x and uses the ALU for the add in the same cycle."""
     image = combined_image(b'', cartridge)
     words = compact_core.analysis_metadata(image)[BASE // 4:BASE // 4 + len(cartridge) // 4]
     targets = {r['target'] for r in words if r['branch'] or r['jal']}
@@ -66,10 +67,12 @@ def rows(cartridge):
                 and following['imm'] == 0 and following['ra'] == r['ra'] and following['pc'] not in targets and r['rd'] not in (r['ra'], following['rb']))
         status = (following and r['load'] and r['f3'] == 0 and r['static_memory'] and r['imm'] == (-240 & 0xFFFFFFFF) and following['branch'] and following['f3'] in (4, 5)
                   and following['ra'] == r['rd'] and following['rb'] == 0 and following['pc'] not in targets)
-        merged.append((r, following if swap else None, following if status else None))
-        skip = bool(swap or status)
+        advance = (following and r['store'] and r['f3'] == 0 and r['imm'] == 0 and not r['static_memory'] and following['word'] & 127 == 51 and following['f3'] == 0 and not following['arithmetic']
+                   and following['rd'] == following['ra'] == r['ra'] and following['rb'] == r['rb'] and following['pc'] not in targets)
+        merged.append((r, following if swap else None, following if status else None, following if advance else None))
+        skip = bool(swap or status or advance)
     result = []
-    for r, store, status in merged:
+    for r, store, status, advance in merged:
         w = r['word']
         where = f"cartridge word at {r['pc']:#x} ({w:#010x})"
         if not r['legal']:
@@ -89,7 +92,7 @@ def rows(cartridge):
         if target and (target & 3 or not BASE <= target < BASE + WORDS * 4):
             raise ValueError(f'branch target {target:#x} leaves the cartridge window: {where}')
         target = new_pc[target] if target else 0
-        result.append(dict(sa=onehot(r['ra']), sb=onehot(store['rb'] if store else r['rb']), sw=onehot(r['rd']), imm=low, target=target >> 2 & 1023, f3=r['f3'], aluop=r['aluop'], legal=1, load=r['load'], store=1 if store else r['store'], branch=r['branch'], jal=r['jal'], jalr=r['jalr'], immediate=r['immediate'], compare=r['compare'], static=int(bool((r['load'] or r['store']) and r['ra'] == 0)), key=int(bool(status and status['f3'] == 4)), nokey=int(bool(status and status['f3'] == 5))))
+        result.append(dict(sa=onehot(r['ra']), sb=onehot(store['rb'] if store else r['rb']), sw=onehot(advance['rd'] if advance else r['rd']), imm=low, target=target >> 2 & 1023, f3=r['f3'], aluop=r['aluop'], legal=1, load=r['load'], store=1 if store else r['store'], branch=r['branch'], jal=r['jal'], jalr=r['jalr'], immediate=0 if advance else r['immediate'], compare=r['compare'], static=int(bool((r['load'] or r['store']) and r['ra'] == 0)), key=int(bool(status and status['f3'] == 4)), nokey=int(bool(status and status['f3'] == 5))))
     return result
 
 
@@ -203,7 +206,7 @@ def console_source(text):
     * Keys are not echoed and do not move the cursor; one tap is delivered as a complete line,
       readable at index 0, and reading it clears it, so no acknowledge transaction is needed.
     * A CPU store to the board writes one screen cell directly (row = address / 16, column =
-      address & 15, columns 12..15 are not shown), with 0 shown as '.', 2 as '+', else 'O'.
+      address & 15, columns 12..15 are not shown), with 0 shown as '.', 2 as '+', 4 as 'Q', else 'O'.
     """
     def once(old, new):
         nonlocal text
@@ -211,7 +214,7 @@ def console_source(text):
         text = text.replace(old, new)
 
     once('port(capture,commit,reset,faulted,key_settled,key_available:in bit;', 'port(capture,commit,reset,faulted,key_settled,key_available,screen_write,screen_late,cart_mode:in bit;screen_address:in bit_vector(5 downto 0);screen_data:in bit_vector(7 downto 0);')
-    decl = '  signal raw_seen,raw_seen_stage,raw_enter,raw_clear,taken_seen,taken_stage,blank_stage,key_shown,mirror_zero,mirror_food:bit;\n  signal mirror_code:bit_vector(5 downto 0);signal mirror_select,mirror_write:bit_vector(47 downto 0);\n'
+    decl = '  signal raw_seen,raw_seen_stage,raw_enter,raw_clear,taken_seen,taken_stage,blank_stage,key_shown,mirror_zero,mirror_food,mirror_head:bit;\n  signal mirror_code:bit_vector(5 downto 0);signal mirror_select,mirror_write:bit_vector(47 downto 0);\n'
     text = text.replace('begin\n', decl + 'begin\n', 1)
     text = text.replace('key_print or cpu_print', 'key_shown or cpu_print')
     once('  newline_event <= key_enter or (tx', '  newline_event <= (key_enter and not cart_mode) or (tx')
@@ -223,7 +226,7 @@ def console_source(text):
     extra = '  key_shown <= key_print and not cart_mode;\n'
     extra += '  raw_seen_stage <= latch(cart_mode,cap_en,reset);raw_seen <= latch(raw_seen_stage,com_en,reset);\n  raw_enter <= cart_mode and not raw_seen;\n  blank_stage <= latch(raw_enter,cap_en,reset);\n'
     extra += '  taken_stage <= latch(gpio(24),cap_en,reset);taken_seen <= latch(taken_stage,com_en,reset);\n  raw_clear <= raw_enter or (cart_mode and (gpio(24) xor taken_seen));\n'
-    extra += "  mirror_zero <= screen_data = bits(0,8);\n  mirror_food <= screen_data = bits(2,8);\n  mirror_code(0) <= not mirror_zero;mirror_code(1) <= '1';mirror_code(2) <= not mirror_food;mirror_code(3) <= '1';mirror_code(4) <= '0';mirror_code(5) <= not mirror_zero and not mirror_food;\n"
+    extra += "  mirror_zero <= screen_data = bits(0,8);\n  mirror_food <= screen_data = bits(2,8);\n  mirror_head <= screen_data = bits(4,8);\n  mirror_code(0) <= not mirror_zero;mirror_code(1) <= not mirror_head;mirror_code(2) <= not mirror_food and not mirror_head;mirror_code(3) <= not mirror_head;mirror_code(4) <= mirror_head;mirror_code(5) <= not mirror_zero and not mirror_food;\n"
     for i in range(48):
         address = i // 12 * 16 + i % 12
         extra += f'  mirror_select({i}) <= screen_write and (screen_address = bits({address},6));\n  mirror_write({i}) <= screen_late and (screen_address = bits({address},6));\n'
@@ -236,6 +239,11 @@ def console_source(text):
         text, n = pattern.subn(lambda m: f'{m[1]} or blank_stage;', text)
         assert n == 1, i
         once(f'  chars_q({i}) <= latch(chars_data({i}),com_en and pixel_write({i}),reset);', f'  chars_q({i}) <= latch(chars_data({i}),(com_en and pixel_write({i})) or mirror_write({i}),reset);')
+    # any screen rows below the board are outside the mirror: entry only blanks them, to spaces
+    for i in range(48, len(re.findall(r'^  pixel_write\(\d+\) <=', text, re.M))):
+        pattern = re.compile(rf'^(  pixel_write\({i}\) <= [^;]*);', re.M)
+        text, n = pattern.subn(lambda m: f'{m[1]} or blank_stage;', text)
+        assert n == 1, i
     return text.rsplit('end;', 1)[0] + extra + 'end;\n'
 
 

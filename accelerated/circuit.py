@@ -89,8 +89,8 @@ class Circuit:
     def validate(self):
         if not self.nodes:
             raise ValueError('Add at least one gate before exporting')
-        if len(self.nodes) > 50000:
-            raise ValueError('Export is limited to 50,000 gates')
+        if len(self.nodes) > 120000:  # uncompacted netlists run larger; the export check below limits what ships
+            raise ValueError('Netlist is limited to 120,000 gates before compaction')
         incoming, outgoing = ({}, {})
         for a, b in self.edges:
             if a not in self.nodes or b not in self.nodes:
