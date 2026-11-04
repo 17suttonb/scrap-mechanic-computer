@@ -16,6 +16,9 @@ FLAT_CONSOLE_X = 60
 FLAT_CONSOLE_Y = 20
 FLAT_CORE_Y = 44
 FLAT_CORE_TIMER_Y = 36
+CART_SEAM_CPU_Y = 79       # CORE-side blocks of the cartridge seam
+CART_SEAM_CART_Y = 80      # CARTRIDGE-side blocks, touching the CORE row
+CART_CUBE_Y = 83           # logic cube of the cartridge module
 
 def build(root, flat=False):
     touching = True
@@ -29,7 +32,9 @@ def build(root, flat=False):
     owner = {int(i): v for i, v in boundary['owners'].items()}
     parts = {p['controller']['id']: deepcopy(p) for b in bp['bodies'] for p in b['childs'] if 'controller' in p and 'data' not in p['controller']}
     original_edges = {(i, e['id']) for i, p in parts.items() for e in p['controller'].get('controllers') or []}
-    links = boundary['links']
+    links = [l for l in boundary['links'] if 'cartridge' not in l['direction']]
+    cart_links = [l for l in boundary['links'] if 'cartridge' in l['direction']]
+    modules = ('cpu', 'terminal') + (('cartridge',) if cart_links else ())
     outgoing = [l for l in links if l['direction'] == 'cpu -> terminal']
     incoming = [l for l in links if l['direction'] == 'terminal -> cpu']
 
@@ -56,7 +61,7 @@ def build(root, flat=False):
     svc = read(src / 'service-clock-map.json')
     timer_ids = {t['controllerId'] for c in (clock, svc) for t in c['timers']}
     flat_width = {}
-    exposed = pixel_ids | key_ids | monitors | timer_ids | {l[k] for l in links for k in ('source', 'receiver')}
+    exposed = pixel_ids | key_ids | monitors | timer_ids | {l[k] for l in links + cart_links for k in ('source', 'receiver')}
     section_of, section_colour, section_count = {}, {}, {}
     if flat:
         # Paint by functional section instead of by gate type. Colours are spread by maximin distance
@@ -72,9 +77,9 @@ def build(root, flat=False):
             counts = Counter(section_of[i] for i in ids if section_of[i])
             section_count[domain] = counts
             section_colour[domain] = sec.section_colors(sorted(counts, key=lambda k: (-counts[k], k)), fixed)
-    for domain, origin in [('terminal', (-15, 3, 1)), ('cpu', (-15, 40, 1))]:
+    for domain, origin in [('terminal', (-15, 3, 1)), ('cpu', (-15, 40, 1))] + ([('cartridge', (-15, CART_CUBE_Y, 1))] if cart_links else []):
         ids = sorted((i for i in parts if owner[i] == domain and i not in exposed))
-        if flat:
+        if flat and domain != 'cartridge':
             # One upright wall (x-z plane, bottom row on the ground plane), twice as wide as tall.
             # Each logic block is turned 180 degrees about Z; the origin shifts by (1, 1) so the
             # occupied cell stays the grid cell.
@@ -119,6 +124,12 @@ def build(root, flat=False):
                 color = 'D96852'
             parts[i].update(pos=dict(x=x, y=y, z=1), xaxis=1, zaxis=-2, color=color)
         l.update(number=index, row=0, column=col, source_position=parts[l['source']]['pos'], receiver_position=parts[l['receiver']]['pos'])
+    cart_links.sort(key=lambda l: (l['direction'] != 'cpu -> cartridge', l['name']))
+    for index, l in enumerate(cart_links, 1):
+        for role in ('source', 'receiver'):
+            i = l[role]
+            parts[i].update(pos=dict(x=-15 + index - 1, y=CART_SEAM_CPU_Y if owner[i] == 'cpu' else CART_SEAM_CART_Y, z=1), xaxis=1, zaxis=-2, color='44AF55' if role == 'source' else 'DFE0E1')
+        l.update(number=index, row=0, column=index - 1, seam='cartridge', source_position=parts[l['source']]['pos'], receiver_position=parts[l['receiver']]['pos'])
     actual = {}
     for i, p in parts.items():
         for cell in occupied_cells(p):
@@ -130,8 +141,9 @@ def build(root, flat=False):
             j = actual.get(other)
             if j is not None and owner[i] != owner[j]:
                 across.add(frozenset((i, j)))
-    assert across == {frozenset((l['source'], l['receiver'])) for l in links}
-    for l in links:
+    wanted = {frozenset((l['source'], l['receiver'])) for l in links + cart_links}
+    assert across == wanted, ('extra', [(sorted(p), [(parts[i]['pos'], owner[i]) for i in p]) for p in list(across - wanted)[:4]], 'missing', [(l['name'], l['direction'], l['source'], l['receiver'], parts[l['source']]['pos'], parts[l['receiver']]['pos']) for l in links + cart_links if frozenset((l['source'], l['receiver'])) not in across][:6])
+    for l in links + cart_links:
         a = list(occupied_cells(parts[l['source']]))
         b = list(occupied_cells(parts[l['receiver']]))
         assert len(a) == len(b) == 1 and sum((abs(x - y) for x, y in zip(a[0], b[0]))) == 1
@@ -141,7 +153,7 @@ def build(root, flat=False):
     module_records = {}
     all_modules = []
     all_signs = []
-    for domain in ('cpu', 'terminal'):
+    for domain in modules:
         children = [deepcopy(parts[i]) for i in sorted(parts) if owner[i] == domain]
         signs = []
         for p in children:
@@ -162,7 +174,9 @@ def build(root, flat=False):
                 p['zaxis'] = -2
             children.append(p)
             signs.append(sign_record(p, text, 'module', 'in'))
-        label('CORE' if domain == 'cpu' else 'CONSOLE', -15 + link_count + 2, 30 if domain == 'cpu' else 28)
+        label({'cpu': 'CORE', 'terminal': 'CONSOLE', 'cartridge': 'CARTRIDGE'}[domain], -15 + (len(cart_links) if domain == 'cartridge' else link_count) + 2, {'cpu': 30, 'terminal': 28, 'cartridge': CART_SEAM_CART_Y}[domain])
+        if domain == 'cpu' and cart_links:
+            label('CARTRIDGE SEAM', -15 + len(cart_links) + 2, CART_SEAM_CPU_Y - 3)
         if domain == 'cpu':
             label('RUN RESET', 3, 32)
         if domain == 'terminal':
@@ -175,7 +189,7 @@ def build(root, flat=False):
             label('FAST BASIC', 16, 1, 36, upright=True)
             for n, t in enumerate(svc['timers']):
                 label('IO ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 10)
-        else:
+        elif domain == 'cpu':
             label('CORE MODULE', 0, FLAT_CORE_TIMER_Y - 2 if flat else 70)
             for n, t in enumerate(clock['timers']):
                 label('CPU ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, FLAT_CORE_TIMER_Y + 3 if flat else 75)
@@ -186,24 +200,29 @@ def build(root, flat=False):
                 label(sec.TITLES.get(section, section.upper()), x, FLAT_CORE_Y - 2 if domain == 'cpu' else FLAT_CONSOLE_Y - 3)
                 children[-1]['color'] = section_colour[domain][section]
                 x += SIGN_BY_UUID[children[-1]['shapeId']].size[0] + 1
-        pad_y = 30 if domain == 'cpu' else 29
-        block(-20, pad_y, 0, 3, 1, 1, color='F5D742')
-        block(-20, pad_y, 1, color='F5D742')
-        block(-20, pad_y, 2, color='D96852')
-        label('WELD', -25, 33 if domain == 'cpu' else 26)
+        for pad_y, weld_y in ([(30, 33), (CART_SEAM_CPU_Y - 1, CART_SEAM_CPU_Y - 4)] if domain == 'cpu' and cart_links else [(30, 33)] if domain == 'cpu' else [(CART_SEAM_CART_Y - 1, CART_SEAM_CART_Y + 3)] if domain == 'cartridge' else [(29, 26)]):
+            block(-20, pad_y, 0, 3, 1, 1, color='F5D742')
+            block(-20, pad_y, 1, color='F5D742')
+            block(-20, pad_y, 2, color='D96852')
+            label('WELD', -25, weld_y)
         module = dict(bp, bodies=[dict(childs=children)])
         support = sparse_supports(module)
         occupied = Counter((c for p in module['bodies'][0]['childs'] for c in occupied_cells(p)))
         assert max(occupied.values()) == 1, [(c, n) for c, n in occupied.items() if n > 1][:5]
         assert len(components(occupied)) == 1
-        assert min((c[1] for c in occupied)) >= 30 if domain == 'cpu' else max((c[1] for c in occupied)) <= 29
+        if domain == 'cartridge':
+            assert min((c[1] for c in occupied)) >= CART_SEAM_CART_Y - 1
+        elif domain == 'cpu':
+            assert 30 <= min((c[1] for c in occupied)) and max((c[1] for c in occupied)) <= CART_SEAM_CPU_Y - 1
+        else:
+            assert max((c[1] for c in occupied)) <= 29
         ids = {p['controller']['id'] for p in children if 'controller' in p}
         assert all((e['id'] in ids for p in children for e in p.get('controller', {}).get('controllers') or []))
         folder = root / 'modules' / str(uuid.uuid4())
         folder.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src / 'icon.png', folder / 'icon.png')
         description = read(src / 'description.json')
-        description.update(localId=folder.name, name='RV32E - ' + 'accelerated ' + ('CORE 1 of 2' if domain == 'cpu' else 'CONSOLE 2 of 2'), description=f'Mate the plain L-shaped pads labelled WELD. The {link_count}-block connector rows touch after welding. Connect each coloured block to the grey block directly touching it across the seam. Blue switch RUN; red switch RESET. RUN OFF; RESET ON 6 seconds, OFF; RUN ON. Tap H then ENTER. No passive test bank. Native functional check pending.')
+        description.update(localId=folder.name, name='RV32E - ' + 'accelerated ' + {'cpu': 'CORE 1 of ', 'terminal': 'CONSOLE 2 of ', 'cartridge': 'CARTRIDGE 3 of '}[domain] + str(len(modules)), description=(f'Mate the plain L-shaped pads labelled WELD. The {len(cart_links)}-block cartridge connector row touches after welding. Connect each coloured block to the grey block directly touching it across the seam. Needs the matching CORE and CONSOLE; type S then ENTER at the prompt to run the program in the cartridge, RESET to return. Native functional check pending.' if domain == 'cartridge' else '') or f'Mate the plain L-shaped pads labelled WELD. The {link_count}-block connector rows touch after welding. Connect each coloured block to the grey block directly touching it across the seam. Blue switch RUN; red switch RESET. RUN OFF; RESET ON 6 seconds, OFF; RUN ON. Tap H then ENTER. No passive test bank. Native functional check pending.')
         save(folder / 'description.json', description)
         o = r['orders']
         data = Encoder(module).encode(o['child_order'], o['controller_order'], o['pos_order'])
@@ -212,7 +231,7 @@ def build(root, flat=False):
         assert packet < 524288
         stats = dict(parts=len(children), logic_blocks=sum((p['shapeId'] == GATE_UUID for p in children)), timers=sum((p['shapeId'] == TIMER_UUID for p in children)), wires=sum((len(p.get('controller', {}).get('controllers') or []) for p in children)))
         row = dict(folder=str(folder.resolve()), blueprint_name=description['name'], blueprint_sha256=hashlib.sha256(data).hexdigest(), packet_bytes=packet, headroom_bytes=524288 - packet, stats=stats, support=support, domain=domain)
-        save(folder / 'link-map.json', dict(links=links, module=domain))
+        save(folder / 'link-map.json', dict(links=links + cart_links, module=domain))
         if flat:
             save(folder / 'section-map.json', dict(sections={k: dict(title=sec.TITLES.get(k, k), colour=section_colour[domain][k], logic_blocks=n) for k, n in section_count[domain].most_common()}))
         save(folder / 'module-report.json', row)
@@ -222,7 +241,7 @@ def build(root, flat=False):
         print('MODULE', domain, packet, stats, flush=True)
     joined = dict(bp, bodies=[dict(childs=all_modules)])
     byid = {p['controller']['id']: p for p in all_modules if 'controller' in p}
-    for l in links:
+    for l in links + cart_links:
         c = byid[l['source']]['controller']
         c['controllers'] = (c.get('controllers') or []) + [dict(id=l['receiver'])]
     joined_edges = {(i, e['id']) for i, p in byid.items() for e in p['controller'].get('controllers') or []}
@@ -257,5 +276,5 @@ def build(root, flat=False):
     row = dict(r, folder=str(folder.resolve()), blueprint_sha256=hashlib.sha256(data).hexdigest(), benchmark_root=str((root / 'joined-validation').resolve()), native_validation='Private assembly simulation; separately import modules', joined_packet_estimate=len(lz4.block.compress(data, store_size=False)) + 13)
     save(root / 'joined.json', row)
     save(root / 'modules.json', dict(modules=module_records, links=links, joined=row, total_headroom=sum((m['headroom_bytes'] for m in module_records.values())), electrical_graph_identical_to_prototype=True, touching_rows=True, each_bridge_is_unique_touching_pair=True, structural_paint_cues=False))
-    print('JOINED', row['joined_packet_estimate'], link_count, 'bridges; collision-free supported assembly', flush=True)
+    print('JOINED', row['joined_packet_estimate'], link_count + len(cart_links), 'bridges; collision-free supported assembly', flush=True)
     return row

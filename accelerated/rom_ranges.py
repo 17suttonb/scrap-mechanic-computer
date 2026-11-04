@@ -1,6 +1,6 @@
 from collections import deque
 from functools import lru_cache
-from accelerated.compact_core import metadata
+from accelerated.compact_core import analysis_metadata as metadata
 from accelerated.isa import signed
 MASK = 4294967295
 LIMIT = 64

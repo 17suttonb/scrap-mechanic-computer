@@ -1,7 +1,7 @@
 from copy import deepcopy
 from unittest.mock import patch
 from accelerated.async_bus import replace_once
-from accelerated.compact_core import metadata
+from accelerated.compact_core import analysis_metadata as metadata
 from accelerated.rom_specialize import zero_bits
 from accelerated.cpu_components import text_sram_source as base_source, text_sram_cpu as base_cpu
 

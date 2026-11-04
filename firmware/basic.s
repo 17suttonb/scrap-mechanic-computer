@@ -75,7 +75,13 @@ keyword_dispatch_loaded:
     beq x6,x0,help_command
     addi x6,x3,-67
     beq x6,x0,letter_c
+    addi x6,x3,-83
+    beq x6,x0,letter_s
     j error
+letter_s:
+    bne x4,x0,error
+    sb x0,-250(x0)
+    j 2048
 assignment:
     addi x6,x4,-65
     addi x7,x0,26

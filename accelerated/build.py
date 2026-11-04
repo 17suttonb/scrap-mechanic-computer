@@ -1,6 +1,7 @@
 from pathlib import Path
 from functools import partial
 import hashlib
+from dataclasses import replace
 import shutil
 import uuid
 from accelerated.compaction import compact_build
@@ -17,8 +18,9 @@ from accelerated.timing import retime
 from accelerated.split import prototype
 from accelerated.layout import build as layout
 from accelerated.io import read, save
+from accelerated.cartridge import combined_image, build as build_cartridge
 
-def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0):
+def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0, cartridge=None):
     package_root = Path(package_root).resolve()
     recipe = read(package_root / 'release.json')
     work = Path(work).resolve() / str(uuid.uuid4())
@@ -26,10 +28,18 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     program = assemble((package_root / 'firmware/basic.s').read_text(encoding='utf-8'), compact_li=beta)
     if hashlib.sha256(program.image).hexdigest() != recipe['firmware_sha256'] and not beta:
         raise ValueError('Firmware differs from the current release')
+    cart_module = None
+    if cartridge is not None:
+        if not beta:
+            raise ValueError('A cartridge needs the unpinned --beta build')
+        cartridge = Path(cartridge).read_bytes()
+        program = replace(program, image=combined_image(program.image, cartridge))
+        cart_module = build_cartridge(cartridge)
     display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True, key_queue=key_queue)
-    factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts)
-    result = compile_system(program.image, factory, complete_service, display)
-    result = compact_build(terminal_cpu(result, ('service_capture', 'service_commit', 'keys', 'terminal_pixels', 'busy', 'full')), max_consumers=2, beta=beta)
+    factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts, cartridge=cartridge)
+    result = compile_system(program.image, factory, complete_service, display, cart_module)
+    cart_ports = tuple(name for name in result.ports if name.startswith('cart_'))
+    result = compact_build(terminal_cpu(result, ('service_capture', 'service_commit', 'keys', 'terminal_pixels', 'busy', 'full') + cart_ports), max_consumers=2, beta=beta)
     result = compact(result)
     result.circuit.name = 'RV32E - private resident text core'
     result.report['terminal_title'] = 'FAST MODULAR'
@@ -53,7 +63,7 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     modules = read(release / 'modules.json')['modules']
     comparison = {}
     for key, module in modules.items():
-        expected = recipe['modules'][key]
+        expected = recipe['modules'].get(key) or dict(blueprint_sha256=None, packet_bytes=None)
         comparison[key] = dict(expected=expected['blueprint_sha256'], rebuilt=module['blueprint_sha256'], identical=expected['blueprint_sha256'] == module['blueprint_sha256'])
         if flat or beta:
             # The flat panel layout is an unpinned variant: only the import limit applies.

@@ -22,7 +22,7 @@ def prototype(baseline, record_root):
         for e in p['controller'].get('controllers') or []:
             parents[e['id']].add(i)
             children[i].add(e['id'])
-    owner = {i: 'terminal' if labels.get(i, '').startswith(('Service ', 'Terminal ', 'timing Service ', 'timing Terminal ')) else 'cpu' for i in parts}
+    owner = {i: 'terminal' if labels.get(i, '').startswith(('Service ', 'Terminal ', 'timing Service ', 'timing Terminal ')) else 'cartridge' if labels.get(i, '').startswith('Cartridge ') else 'cpu' for i in parts}
     svc = read(src / 'service-clock-map.json')
     clock = read(src / 'clock-map.json')
     for i in svc['names'].values():
@@ -86,10 +86,10 @@ def prototype(baseline, record_root):
             return local_pure(i, domain)
         if i == run:
             raise AssertionError('RUN uses its existing receiver')
-        key = (i, domain)
+        assert len(parents[i]) == 1 and parts[i]['controller']['mode'] == 1, (i, labels[i])
+        p = next(iter(parents[i]))
+        key = (p, domain)    # pins with the same driver (e.g. identical cartridge bits) share one link
         if key not in received:
-            assert len(parents[i]) == 1 and parts[i]['controller']['mode'] == 1, (i, labels[i])
-            p = next(iter(parents[i]))
             assert owner[p] == owner[i], (labels[i], labels[p])
             n = add_gate(domain, 'Module RX ' + labels[i], parts[i])
             received[key] = n
@@ -107,7 +107,7 @@ def prototype(baseline, record_root):
             edges.add((receive(a, owner[b]), b))
     crossings = {(a, b) for a, b in edges if owner[a] != owner[b]}
     assert crossings == {(l['source'], l['receiver']) for l in links}
-    assert len(links) == 46, (len(links), [(l['name'], l['direction']) for l in links])
+    assert len([l for l in links if 'cartridge' not in l['direction']]) == 46, (len(links), [(l['name'], l['direction']) for l in links])
     outgoing = defaultdict(list)
     for a, b in sorted(edges):
         outgoing[a].append(dict(id=b))

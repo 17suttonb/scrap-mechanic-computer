@@ -281,7 +281,7 @@ from unittest.mock import patch as basic_variables_patch
 from accelerated import register_alias as basic_variables_register_alias
 from accelerated.async_bus import replace_once as basic_variables_replace_once
 from accelerated.pair_branch import cpu as basic_variables_pair_cpu
-from accelerated.compact_core import metadata as basic_variables_metadata
+from accelerated.compact_core import analysis_metadata as basic_variables_metadata
 basic_variables_VARIABLES = 26
 basic_variables_RAM_BYTES = 64
 basic_variables_DIRECTORY = 32

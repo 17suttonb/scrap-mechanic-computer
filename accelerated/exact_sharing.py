@@ -1,11 +1,12 @@
 from collections import Counter
 from copy import deepcopy
 from accelerated.hdl import Build
+from accelerated.cartridge import seam_drivers
 
 def share(build):
     c = build.circuit.clone()
     before = c.clone()
-    protected = {n for p in build.ports.values() for n in p['node_ids']}
+    protected = {n for p in build.ports.values() for n in p['node_ids']} | seam_drivers(build)
     protected |= {n for n, v in c.nodes.items() if v['kind'] == 'INPUT' or 'latch ' in v['label']}
     protected |= {n for n, v in c.nodes.items() if v['label'].startswith('timing TEXT ')}
     parents = {i: set() for i in c.nodes}

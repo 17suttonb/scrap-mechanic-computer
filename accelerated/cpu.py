@@ -280,6 +280,18 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
     return text.rsplit('end;', 1)[0] + extra + 'end;\n'
 
 def cpu(image, ram_bytes=64, **options):
+    """With `cartridge` set, `image` is the firmware padded to the cartridge window followed by the
+    cartridge: the analyses see all of it but the baked decoder only the firmware."""
+    cartridge = options.pop('cartridge', None)
+    if cartridge is None:
+        return firmware_cpu(image, ram_bytes, **options)
+    from accelerated import cartridge as cart
+    with cart.window(), cart.cpu_text_hook():
+        result = firmware_cpu(image, ram_bytes, **options)
+    result.report['cpu']['cartridge'] = dict(base=cart.BASE, words=len(cartridge) // 4, address_bits=cart.ADDRESS_BITS)
+    return result
+
+def firmware_cpu(image, ram_bytes=64, **options):
     options.pop('beta', None)
     fast_shifts = options.pop('fast_shifts', False)
     original = register_alias.source

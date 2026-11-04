@@ -14,11 +14,15 @@ def main():
     parser.add_argument('--beta',action='store_true',help='build an unpinned beta: optimised firmware and netlist passes, release.json hash checks skipped (cube layout unless --flat)')
     parser.add_argument('--fast-shifts',action=argparse.BooleanOptionalAction,default=None,help='single-cycle fixed shifts (default on with --beta, otherwise off; verified in the simulator only)')
     parser.add_argument('--key-queue',type=int,default=None,help='keystroke FIFO depth on the console (default 16 with --beta, otherwise 0 = original single-key tap)')
+    parser.add_argument('--cartridge',type=Path,default=None,help='program cartridge image (flat RV32E binary linked at 0x800) built into a third CARTRIDGE module (default cartridge/snake.bin with --beta; needs --beta)')
+    parser.add_argument('--no-cartridge',action='store_true',help='build --beta without the cartridge module')
     args=parser.parse_args()
     if args.fast_shifts is None:args.fast_shifts=args.beta
     if args.key_queue is None:args.key_queue=16 if args.beta else 0
     if args.beta and args.output==ROOT/'out-blueprints':args.output=ROOT/'out-blueprints-beta'
     if args.flat and args.output==ROOT/'out-blueprints':args.output=ROOT/'out-blueprints-flat'
-    result,work=build_current(ROOT,args.output,args.work,flat=args.flat,beta=args.beta,fast_shifts=args.fast_shifts,key_queue=args.key_queue)
+    if args.cartridge is None and args.beta and not args.no_cartridge:args.cartridge=ROOT/'cartridge'/'snake.bin'
+    if args.no_cartridge:args.cartridge=None
+    result,work=build_current(ROOT,args.output,args.work,flat=args.flat,beta=args.beta,fast_shifts=args.fast_shifts,key_queue=args.key_queue,cartridge=args.cartridge)
     print('Verification record:',work/'verification.json')
 if __name__=='__main__':main()

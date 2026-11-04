@@ -1,6 +1,7 @@
 from collections import Counter, deque
 from copy import deepcopy
 from accelerated.hdl import Build
+from accelerated.cartridge import seam_drivers
 
 def compact_build(build, max_consumers=1, beta=False, double_inversions_enabled=False):
     if max_consumers not in (1, 2):
@@ -8,7 +9,7 @@ def compact_build(build, max_consumers=1, beta=False, double_inversions_enabled=
     circuit = build.circuit.clone()
     before = (len(circuit.nodes), len(circuit.edges))
     timing = {i for i, n in circuit.nodes.items() if n['label'].startswith('timing ')}
-    protected = {node for port in build.ports.values() for node in port['node_ids']} | timing
+    protected = {node for port in build.ports.values() for node in port['node_ids']} | timing | seam_drivers(build)
     parents = {i: set() for i in circuit.nodes}
     children = {i: set() for i in circuit.nodes}
     for a, b in circuit.edges:

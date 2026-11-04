@@ -4,7 +4,11 @@ from accelerated.branch_frontend import branch_compare_source
 from accelerated.isa import signed
 MASK = 4294967295
 
-def metadata(image):
+CART = None
+
+
+def analysis_metadata(image):
+    """Every ROM row as assembled: used by the register-width and value-range analyses."""
     rows = []
     for pc in range(0, len(image), 4):
         w = int.from_bytes(image[pc:pc + 4], 'little')
@@ -40,6 +44,17 @@ def metadata(image):
         aluop = 2 if subtract else {4: 3, 6: 4, 7: 5}.get(f3, 1) if r or i else 1
         rows.append(dict(pc=pc, word=w, ra=ra & 15 if usesa else 0, rb=rb & 15 if usesb else 0, rd=rd & 15 if usesrd else 0, imm=imm & MASK, target=target & MASK, link=pc + 4, legal=int(legal), load=int(load), store=int(store), branch=int(branch), jal=int(op == 111), jalr=int(op == 103), lui=int(op == 55), auipc=int(op == 23), immediate=int(i or load or store or (op == 103) or upper), f3=f3, aluop=aluop, shiftleft=int((r or i) and f3 == 1), shiftright=int((r or i) and f3 == 5), arithmetic=int(f7 == 32), compare=int((r or i) and f3 in (2, 3)), static_memory=int((load or store) and ra == 0), stop=int(w in (115, 1048691)), stopcause=11 if w == 115 else 3))
     return rows
+
+
+def metadata(image):
+    """Decode view: rows inside the CART (first, end) byte range are supplied by an external
+    cartridge, so the baked-in decoder must know nothing about them."""
+    rows = analysis_metadata(image)
+    if CART is None:
+        return rows
+    first, end = CART
+    return [dict.fromkeys(r, 0) | dict(pc=r['pc'], link=r['pc'] + 4) if first <= r['pc'] < end else r for r in rows]
+
 
 def source(image, ram_bytes=32, *, data_rom=True):
     rows = metadata(image)

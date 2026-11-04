@@ -1,5 +1,5 @@
 from collections import defaultdict
-from accelerated.compact_core import metadata as original_metadata
+from accelerated.compact_core import metadata as original_metadata, analysis_metadata
 from accelerated.async_bus import replace_once
 
 def metadata(image):
@@ -20,7 +20,7 @@ def metadata(image):
 
 def zero_bits(image):
     writes = defaultdict(list)
-    rows = original_metadata(image)
+    rows = analysis_metadata(image)
     initial = rows[0] if rows else {}
     fixed = initial.get('rd', 0) if initial.get('lui') else 0
     if any((r['rd'] == fixed for r in rows[1:])):
