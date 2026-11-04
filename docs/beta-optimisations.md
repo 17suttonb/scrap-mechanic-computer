@@ -4,12 +4,12 @@ Branch: `beta-optimisations`. Build with:
 
 ```powershell
 python -I build.py --beta                 # cube layout -> out-blueprints-beta/
-python -I build.py --beta --fast-shifts   # also re-enable single-cycle fixed shifts
+python -I build.py --beta --no-fast-shifts   # fall back to 2-cycle shifts (fast shifts and the key queue are on by default, see input-queue.md)
 ```
 
 `--beta` skips the `release.json` hash checks (firmware, module SHA256s, packet sizes) because any design change breaks them. The import limit (packet < 524,288 B) is still enforced. The default pinned build is unchanged, but it fails on the firmware hash while `firmware/basic.s` differs from the release. `release.json` has not been updated.
 
-**Status: untested.** Nothing here has been run in game or in a simulator. There is no CPU simulator in the repo.
+**Status:** the netlist and firmware changes were checked in the Logic-Block-Simulator (see [input-queue.md](input-queue.md)); nothing has been run in the game itself.
 
 ## Result
 

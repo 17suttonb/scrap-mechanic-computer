@@ -14,3 +14,5 @@ Speed is host simulation speed in ticks/sec; higher is better. Single run each, 
 Note: on main the default build currently fails ("Firmware differs from the current release") because
 commit 9bbe5c1 edited `firmware/basic.s` without updating `release.json`. The default row was therefore built
 from c4f1e16, the last commit whose default build matches the pinned release (joined hash matches `release.json`).
+
+| 2026-11-04 | input-queue | `--beta` (16-deep key queue + fast shifts) | 21993414f7ac | 20000 | 24.63 | 812.2 | +7.1% vs beta in the same session (beta re-measured at 758.1 ticks/s; the machine was slower than for the rows above) |
