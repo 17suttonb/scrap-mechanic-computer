@@ -13,19 +13,17 @@ def service_source(ram_bytes=32):
     rb = ram_bytes.bit_length() - 1
     return f'entity rv_memory_service is\n  port(capture,commit,reset,bus_request,bus_write:in bit;\n       bus_address:in bit_vector({rb - 1} downto 0); bus_kind:in bit_vector(1 downto 0);\n       bus_write_data,keyboard_data:in bit_vector(7 downto 0);\n       bus_ack:out bit; bus_read_data:out bit_vector(7 downto 0);\n       gpio,ram_zero:out bit_vector(31 downto 0));\nend;\narchitecture gates of rv_memory_service is\n  type ram_t is array(0 to {ram_bytes - 1}) of bit_vector(7 downto 0);\n  type bytes_t is array(0 to 3) of bit_vector(7 downto 0);\n  signal ram:ram_t; signal gpio_bytes:bytes_t;\n  signal cap_en,com_en,request_one,request_one_stage,request_two,request_two_stage:bit;\n  signal token_stage,ack_q,fire_stage,write_stage:bit;\n  signal address_stage:bit_vector({rb - 1} downto 0); signal kind_stage:bit_vector(1 downto 0);\n  signal data_stage,read_mux,response:bit_vector(7 downto 0);\nbegin\n  cap_en <= capture and not commit and not reset;\n  com_en <= commit and not capture and not reset;\n  request_one_stage <= latch(bus_request,cap_en,reset); request_one <= latch(request_one_stage,com_en,reset);\n  request_two_stage <= latch(request_one,cap_en,reset); request_two <= latch(request_two_stage,com_en,reset);\n  fire_stage <= latch((request_one xnor request_two) and (request_two xor ack_q),cap_en,reset);\n  token_stage <= latch(request_two,cap_en,reset);\n  address_stage <= latch(bus_address,cap_en,reset);\n  kind_stage <= latch(bus_kind,cap_en,reset); write_stage <= latch(bus_write,cap_en,reset);\n  data_stage <= latch(bus_write_data,cap_en,reset);\n  memory_cells:for i in 0 to {ram_bytes - 1} generate\n    ram(i) <= latch(data_stage,com_en and fire_stage and write_stage and (kind_stage = bits(0,2)) and (address_stage = bits(i,{rb})),reset);\n  end generate;\n  gpio_cells:for i in 0 to 3 generate\n    gpio_bytes(i) <= latch(data_stage,com_en and fire_stage and write_stage and (kind_stage = bits(1,2)) and (address_stage(1 downto 0) = bits(i,2)),reset);\n  end generate;\n  read_mux <= ram(to_integer(address_stage)) when kind_stage = bits(0,2) else\n              gpio_bytes(to_integer(address_stage(1 downto 0))) when kind_stage = bits(1,2) else\n              keyboard_data when (kind_stage = bits(2,2)) and (address_stage(1 downto 0) = bits(0,2)) else x"00";\n  response <= latch(read_mux,com_en and fire_stage,reset);\n  ack_q <= latch(token_stage,com_en and fire_stage,reset);\n  bus_ack <= ack_q; bus_read_data <= response;\n  gpio <= gpio_bytes(3) & gpio_bytes(2) & gpio_bytes(1) & gpio_bytes(0);\n  ram_zero <= ram(3) & ram(2) & ram(1) & ram(0);\nend;\n'
 
-def combine(cpu, service, terminal=None, cartridge=None):
+def combine(cpu, service, terminal=None):
     """Join real output nodes to input pins; only the two clocks stay separate."""
     circuit = cpu.circuit.clone()
     maps = [{i: i for i in cpu.circuit.nodes}]
     builds = [cpu, service]
     if terminal:
         builds.append(terminal)
-    if cartridge:
-        builds.append(cartridge)
     for build in builds[1:]:
         mapping = {}
         for i, node in build.circuit.nodes.items():
-            prefix = 'Service ' if build is service else 'Cartridge ' if build is cartridge else 'Terminal '
+            prefix = 'Service ' if build is service else 'Terminal '
             label = 'timing ' + prefix + node['label'][7:] if node['label'].startswith('timing ') else prefix + node['label']
             new = circuit.add(node['kind'], node['x'], node['y'], label)
             circuit.nodes[new]['initial'] = node['initial']
@@ -51,18 +49,15 @@ def combine(cpu, service, terminal=None, cartridge=None):
         for name in ('input_cache_data', 'input_cache_token', 'input_cache_filled'):
             bind(0, name, 1, name)
     bind(1, 'reset', 0, 'reset')
-    if cartridge:
-        module = builds.index(cartridge)
-        bind(module, 'cart_address', 0, 'cart_address')
-        for name in cartridge.ports:
-            if name != 'cart_address':
-                bind(0, name, module, name)
-        # the console watches the CPU's memory bus for board writes and the PC for cartridge mode
+    if 'cart_address' in cpu.ports:
+        # the console watches the CPU's memory bus for direct screen writes, and its mode
         bind(2, 'screen_write', 0, 'cart_screen_write')
         bind(2, 'screen_address', 0, 'bus_address')
         bind(2, 'screen_high', 0, 'cart_screen_high')
+        bind(2, 'screen_text', 0, 'cart_screen_text')
         bind(2, 'screen_data', 0, 'bus_write_data')
-        bind(2, 'cart_mode', 0, 'cart_mode_out')
+        bind(2, 'cart_mode', 0, 'cart_tap')
+        bind(2, 'board_mode', 0, 'cart_board')
     if terminal:
         bind(2, 'reset', 0, 'reset')
         bind(2, 'faulted', 0, 'faulted')
@@ -89,9 +84,6 @@ def combine(cpu, service, terminal=None, cartridge=None):
         ports[name]['node_ids'] = [resolve(i) for i in pins(0, name)]
     for name in ('gpio', 'ram_zero'):
         ports[name]['mode'] = 'out'
-    for name in cartridge.ports if cartridge else ():
-        if name != 'cart_address':
-            ports[name]['mode'] = 'out'
     if terminal:
         ports['input_byte']['mode'] = 'out'
     for name in ('capture', 'commit'):

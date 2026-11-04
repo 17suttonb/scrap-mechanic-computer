@@ -30,7 +30,7 @@ Every district has a sign in its colour at its near edge, and a colour key runs 
 
 ## What you see
 
-**CORE**, y 37..71 from x=-15 rightward, roughly in the order an instruction goes through it: PC FETCH, ROM LADDER and DECODE; FUSION LANES and BRANCH; REGISTERS, one wall per register with a sign X1 to X15 (a short wall is a register with less logic around it: narrower by value analysis, or written by fewer fusion paths); READ PORTS and RESULT BUS; ALU, SHIFTER and MEMORY PORT; RAM 64 BYTES, 16 words of 4 byte tiles; PROGRAM TEXT, one wall per stored BASIC line; TEXT READ, TEXT CONTROL and BUS CONTROL. The CPU timers are at y=73.
+**CORE**, y 37..71 from x=-15 rightward, roughly in the order an instruction goes through it: PC FETCH, ROM LADDER and DECODE, small because only the menu is baked in; FUSION LANES and BRANCH; REGISTERS, one wall per register with a sign X1 to X15, with no X8, which does not exist in this build; READ PORTS and RESULT BUS; ALU, SHIFTER and MEMORY PORT; RAM 64 BYTES, 16 words of 4 byte tiles; PROGRAM TEXT, one wall per stored BASIC line; TEXT READ, TEXT CONTROL and BUS CONTROL. The CPU timers are at y=73.
 
 **CONSOLE**: CHARACTER CELLS is 12 by 8 tiles at the pitch of the screen, so each tile stands directly behind the 6 pixel wide column of its character, and holds that character's latches, font decoder and pixel drivers. To the right of the screen are KEY QUEUE, KEYBOARD, LINE BUFFER, CURSOR, NUMBERS and SERVICE, and the IO timers.
 
@@ -52,15 +52,15 @@ Each module must stay under 524288 bytes after LZ4. Grouping costs size because 
 
 The numbers tried and rejected: more than two shades per district costs 15-25 kB, ordering by tile costs 15 kB, filling tiles by bit costs 9 kB. Going taller to shorten x saves about 1 kB, and all the signs together cost under 2 kB.
 
-The layout still costs about 22 kB on CORE and 20 kB on CONSOLE compared with the cube, and **CORE is the module near the limit**. If new CPU logic takes it over, the build stops with a message saying so; `--layout cube` builds it, and the first thing to look at is whatever made the CPU grow.
+The layout still costs about 22 kB on CORE and 20 kB on CONSOLE compared with the cube, and with BASIC moved out to the cartridge **CONSOLE is the module near the limit**. If new logic takes a module over, the build stops with a message saying so; `--layout cube` builds it, and the first thing to look at is whatever made it grow.
 
 ## Cartridge groups: the contract
 
-The cartridge is laid out from whatever tags its gates carry. Nothing here knows about programs.
+The cartridge is laid out from whatever tags its gates carry. Nothing here knows about programs. `accelerated/cartridge.py` tags every row decoder and field OR with the part of the program it belongs to, and `accelerated/cartridge_module.py` writes the map below from the parts named in the cartridge file: see [cartridge.md](cartridge.md).
 
-**Gate tag.** A gate belongs to group `<group>` if its label ends in ` @cart_<group>` or ` @cart_<group>:<signal>`, where `<group>` matches `\w+`. In HDL terms this is the section mechanism: `sections.classify` returning `cart_<group>` for a statement in `rv_cartridge` gives it to all the gates that statement makes (`combine` adds the `Cartridge ` prefix to the front of the label, which is fine). The untagged default for that entity is `@cart:<signal>`.
+**Gate tag.** A gate belongs to group `<group>` if its label ends in ` @cart_<group>` or ` @cart_<group>:<signal>`, where `<group>` matches `\w+`. The untagged default is `@cart:<signal>`.
 
-**Map file (optional).** `cartridge-map.json` in the export folder, the one holding `circuit-map.json`. Write it before `prepare` runs, next to where `build_current` saves `program-timers.json`; `prepare` and `prototype` copy the folder along.
+**Map file (optional).** `cartridge-map.json` in the folder handed to `plan_domain`.
 
 ```json
 {"groups": [
@@ -90,4 +90,4 @@ Group order on the module is map order. A tag not in the map gets its own distri
 
 So shared decode and output logic is left untagged and lands in ADDRESS and OUTPUT BUS, and a group's tagged `select_row(n)` gates form strips in its own district. A tagged gate's block is its row (by 8) or its signal.
 
-The output field ORs currently span all rows, so splitting them per program is up to the cartridge generator: the layout only places the tags it finds. Seam blocks are placed by the seam code, not here, so more links only lengthen that row. The cartridge has no upper limit in y, but its depth grows only with the square root of its gates: strips wrap into more columns, so it stays about twice as wide as deep.
+Each group has its own field ORs, which merge in the gates at the seam, so the row of seam blocks is the OUTPUT BUS, with a sign saying so. Seam blocks are placed by the seam code, not here, and the row is the same for every cartridge. The cartridge has no upper limit in y, but its depth grows only with the square root of its gates: strips wrap into more columns, so it stays about twice as wide as deep.

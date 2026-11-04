@@ -22,7 +22,7 @@ def prototype(baseline, record_root, console_switches=False):
         for e in p['controller'].get('controllers') or []:
             parents[e['id']].add(i)
             children[i].add(e['id'])
-    owner = {i: 'terminal' if labels.get(i, '').startswith(('Service ', 'Terminal ', 'timing Service ', 'timing Terminal ')) else 'cartridge' if labels.get(i, '').startswith('Cartridge ') else 'cpu' for i in parts}
+    owner = {i: 'terminal' if labels.get(i, '').startswith(('Service ', 'Terminal ', 'timing Service ', 'timing Terminal ')) else 'cpu' for i in parts}
     svc = read(src / 'service-clock-map.json')
     clock = read(src / 'clock-map.json')
     for i in svc['names'].values():
@@ -37,7 +37,7 @@ def prototype(baseline, record_root, console_switches=False):
                     owner[i] = next(iter(domains))
     reset = clock['names']['reset']
     run = clock['names']['run']
-    pure = {reset} | {i for i, p in parts.items() if p['shapeId'] == GATE_UUID and (not parents[i])}
+    pure = {reset} | {i for i, p in parts.items() if p['shapeId'] == GATE_UUID and (not parents[i]) and not labels.get(i, '').startswith('cart_pin ')}
     while True:
         add = {i for i, p in parts.items() if i not in pure and parents[i] and (parents[i] <= pure) and (p['shapeId'] == GATE_UUID)}
         if not add:
@@ -98,7 +98,7 @@ def prototype(baseline, record_root, console_switches=False):
             raise AssertionError('RUN uses its existing receiver')
         assert len(parents[i]) == 1 and parts[i]['controller']['mode'] == 1, (i, labels[i])
         p = next(iter(parents[i]))
-        key = (p, domain)    # pins with the same driver (e.g. identical cartridge bits) share one link
+        key = (p, domain)    # pins with the same driver share one link
         if key not in received:
             assert owner[p] == owner[i], (labels[i], labels[p])
             n = add_gate(domain, 'Module RX ' + labels[i], parts[i])
@@ -119,7 +119,7 @@ def prototype(baseline, record_root, console_switches=False):
             edges.add((receive(a, owner[b]), b))
     crossings = {(a, b) for a, b in edges if owner[a] != owner[b]}
     assert crossings == {(l['source'], l['receiver']) for l in links}
-    assert len(links) == 46 or any('cartridge' in l['direction'] for l in links), (len(links), [(l['name'], l['direction']) for l in links])
+    assert len(links) == 46 or console_switches, (len(links), [(l['name'], l['direction']) for l in links])
     outgoing = defaultdict(list)
     for a, b in sorted(edges):
         outgoing[a].append(dict(id=b))

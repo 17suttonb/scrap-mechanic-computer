@@ -18,7 +18,10 @@ from accelerated.timing import retime
 from accelerated.split import prototype
 from accelerated.layout import build as layout
 from accelerated.io import read, save
-from accelerated.cartridge import combined_image, build as build_cartridge
+from accelerated.cartridge import generic_image, read_image, seam_interface
+from accelerated import cartridge_module
+
+BETA_BOOT_TEXT = ('', '', '>', '')    # the console's page 0 knows no program: BASIC draws its own banner over it
 
 def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0, cartridge=None, cpu_ticks=None, screen_rows=4, districts=False):
     package_root = Path(package_root).resolve()
@@ -29,22 +32,24 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
         recipe['cpu_ticks'] = list(cpu_ticks)
     work = Path(work).resolve() / str(uuid.uuid4())
     (work / 'exports').mkdir(parents=True)
-    program = assemble((package_root / 'firmware/basic.s').read_text(encoding='utf-8'), compact_li=beta)
+    if cartridge is not None and not beta:
+        raise ValueError('A cartridge needs the unpinned --beta build')
+    program = assemble((package_root / ('firmware/menu.s' if beta else 'firmware/basic.s')).read_text(encoding='utf-8'), compact_li=beta)
     if hashlib.sha256(program.image).hexdigest() != recipe['firmware_sha256'] and not beta:
         raise ValueError('Firmware differs from the current release')
-    cart_module = None
+    image = None
     if cartridge is not None:
-        if not beta:
-            raise ValueError('A cartridge needs the unpinned --beta build')
-        cartridge = Path(cartridge).read_bytes()
-        program = replace(program, image=combined_image(program.image, cartridge))
-        cart_module = build_cartridge(cartridge)
-    display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True, key_queue=key_queue, screen=cart_module is not None, rows=screen_rows)
-    factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts, cartridge=cartridge)
-    result = compile_system(program.image, factory, complete_service, display, cart_module)
+        image = read_image(Path(cartridge).read_bytes(), Path(cartridge).stem)
+    if beta:
+        program = replace(program, image=generic_image(program.image))
+    display = terminal(BETA_BOOT_TEXT if beta else tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True, key_queue=key_queue, screen=beta, rows=screen_rows)
+    factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts, cartridge=True if beta else None)
+    result = compile_system(program.image, factory, complete_service, display)
     cart_ports = tuple(name for name in result.ports if name.startswith('cart_'))
     result = compact_build(terminal_cpu(result, ('service_capture', 'service_commit', 'keys', 'terminal_pixels', 'busy', 'full') + cart_ports), max_consumers=2, beta=beta)
     result = compact(result)
+    if beta:
+        result = seam_interface(result)
     result.circuit.name = 'RV32E - private resident text core'
     result.report['terminal_title'] = 'FAST MODULAR'
     folder = export_async(result, program, work / 'exports', recipe['cpu_ticks'], 7)
@@ -63,8 +68,13 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     record.update(blueprint_sha256=hashlib.sha256(raw).hexdigest(), orders=orders)
     release = work / 'release'
     prototype(record, release, console_switches=beta)
-    layout(release, flat=flat, solid=beta, districts=districts)
+    joined = layout(release, flat=flat, solid=beta, districts=districts, total=3 if image else 2, attached=image is not None)
     modules = read(release / 'modules.json')['modules']
+    if image:
+        modules['cartridge'] = cartridge_module.build(image, release / 'modules', districts=districts)
+        cartridge_module.attach_joined(joined['folder'], modules['cartridge']['folder'], read(release / 'seam.json')['links'])
+        for module in modules.values():
+            print('PACKET', module['blueprint_name'], module['packet_bytes'], flush=True)
     comparison = {}
     for key, module in modules.items():
         expected = recipe['modules'].get(key) or dict(blueprint_sha256=None, packet_bytes=None)
@@ -86,7 +96,7 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
         description = read(dest / 'description.json')
         description['localId'] = dest.name
         save(dest / 'description.json', description)
-        shutil.copy2(package_root / ('cartridge/ASSEMBLY.md' if cart_module else 'ASSEMBLY.md'), dest / 'ASSEMBLY.md')
+        shutil.copy2(package_root / ('cartridge/ASSEMBLY.md' if beta else 'ASSEMBLY.md'), dest / 'ASSEMBLY.md')
         print('EXPORTED', description['name'], dest, flush=True)
         comparison[key]['export_folder'] = str(dest)
     save(work / 'verification.json', comparison)

@@ -8,7 +8,6 @@ follows the head. A tap counts as registered when the head moves in that directi
 the first screen update showing the head on its new heading. Times are at the nominal 40 updates per second.
 """
 import argparse
-import json
 import re
 import sys
 from collections import defaultdict
@@ -32,9 +31,8 @@ class Game:
 
     def start(self):
         self.m = Machine(self.folder, self.cpu_ticks)
-        self.m.sim.advance(6000)
-        self.m.tap('S', 200)
-        self.m.tap('ENTER', 4)
+        assert self.m.menu_ready('2'), self.m.text()
+        self.m.start_program('2')
         self.height = 0
         for _ in range(4000):
             self.m.sim.advance(4)
@@ -315,26 +313,34 @@ def win(g, hold=8):
 
 
 def restart(g):
-    """RESET after a game: BASIC must work, and a second game must start on a clean board."""
-    names = json.loads((Path(g.folder) / 'clock-map.json').read_text(encoding='utf-8'))['names']
+    """RESET after a game: the menu must come back, BASIC must work, and a second game must start on a clean board."""
     sim = g.m.sim
-    sim.request_input(names['run'], False, at_tick=sim.time + 1)
-    sim.request_input(names['reset'], True, at_tick=sim.time + 20)
-    sim.request_input(names['reset'], False, at_tick=sim.time + 500)
-    sim.request_input(names['run'], True, at_tick=sim.time + 520)
-    sim.advance(6000)
-    basic = g.m.text()
+
+    def reset():
+        sim.request_input(g.m.run, False, at_tick=sim.time + 1)
+        sim.request_input(g.m.reset, True, at_tick=sim.time + 20)
+        sim.request_input(g.m.reset, False, at_tick=sim.time + 500)
+        sim.request_input(g.m.run, True, at_tick=sim.time + 520)
+        sim.advance(530)
+    reset()
+    assert g.m.menu_ready('1'), g.m.text()
+    menu = g.m.text()
+    g.m.boot('1')
     seconds = g.m.command('?2+3', 4000)
     answer = g.m.text()
-    g.m.tap('S', 200)
-    g.m.tap('ENTER', 4)
-    sim.advance(1400)
+    reset()
+    assert g.m.menu_ready('2'), g.m.text()
+    g.m.start_program('2')
+    sim.advance(2400)
+    # a cell shows a transient glyph as it changes
+    while '#' in ''.join(g.m.text()):
+        sim.advance(2)
     board = g.m.text()
-    print('after RESET', basic)
+    print('after RESET', menu)
     print(f'?2+3 in {seconds:.2f} s', answer)
     print('second game', board)
     cells = ''.join(board[:7])
-    return '5' in ''.join(answer) and cells.count('Q') == 1 and cells.count('+') == 1 and cells.count('O') <= 2 and board[7].startswith('00 SCORE')
+    return menu[0] == 'MENU' and '5' in ''.join(answer) and cells.count('Q') == 1 and cells.count('+') == 1 and cells.count('O') <= 2 and board[7].startswith('00 SCORE')
 
 
 def main():

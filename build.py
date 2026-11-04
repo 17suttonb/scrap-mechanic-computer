@@ -16,8 +16,8 @@ def main():
     parser.add_argument('--beta',action='store_true',help='build an unpinned beta: optimised firmware and netlist passes, release.json hash checks skipped (districts layout unless --layout says otherwise)')
     parser.add_argument('--fast-shifts',action=argparse.BooleanOptionalAction,default=None,help='single-cycle fixed shifts (default on with --beta, otherwise off; verified in the simulator only)')
     parser.add_argument('--key-queue',type=int,default=None,help='keystroke FIFO depth on the console (default 16 with --beta, otherwise 0 = original single-key tap)')
-    parser.add_argument('--cartridge',type=Path,default=None,help='program cartridge image (flat RV32E binary linked at 0x800) built into a third CARTRIDGE module (default cartridge/snake.bin with --beta; needs --beta)')
-    parser.add_argument('--no-cartridge',action='store_true',help='build --beta without the cartridge module')
+    parser.add_argument('--cartridge',type=Path,default=None,help='cartridge file (from cartridge/make_cartridge.py), or a bare RV32E binary run as a single program in board mode, built into a third CARTRIDGE module (default cartridge/programs.bin with --beta; needs --beta)')
+    parser.add_argument('--no-cartridge',action='store_true',help='build --beta without the cartridge module: the menu says so')
     parser.add_argument('--cpu-ticks',default=None,help='four CPU timer settings, capture,gap,commit,gap (default 16,2,8,2 with --beta; the pinned clock is 20,6,12,6)')
     parser.add_argument('--screen-rows',type=int,default=None,help='text rows on the screen, up to 8 (default 8 with --beta, otherwise 4)')
     args=parser.parse_args()
@@ -31,7 +31,7 @@ def main():
     if args.beta and args.output==ROOT/'out-blueprints':args.output=ROOT/'out-blueprints-beta'
     if args.flat and args.output==ROOT/'out-blueprints':args.output=ROOT/'out-blueprints-flat'
     if args.layout=='districts' and args.output==ROOT/'out-blueprints':args.output=ROOT/'out-blueprints-districts'
-    if args.cartridge is None and args.beta and not args.no_cartridge:args.cartridge=ROOT/'cartridge'/'snake.bin'
+    if args.cartridge is None and args.beta and not args.no_cartridge:args.cartridge=ROOT/'cartridge'/'programs.bin'
     if args.no_cartridge:args.cartridge=None
     result,work=build_current(ROOT,args.output,args.work,flat=args.flat,districts=args.layout=='districts',beta=args.beta,fast_shifts=args.fast_shifts,key_queue=args.key_queue,cartridge=args.cartridge,cpu_ticks=[int(v) for v in args.cpu_ticks.split(',')] if args.cpu_ticks else (BETA_CPU_TICKS if args.beta else None),screen_rows=args.screen_rows or (8 if args.beta else 4))
     print('Verification record:',work/'verification.json')

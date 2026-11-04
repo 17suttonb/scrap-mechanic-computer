@@ -49,9 +49,11 @@ configuration described here.
 ## Program cartridge (beta)
 
 `python -I build.py --beta` also exports a third blueprint, **CARTRIDGE 3 of 3**, holding a compiled
-Snake game that the CPU runs from outside its own gates: type `S` then ENTER at the BASIC prompt.
-The cartridge is a ROM generated from `cartridge/snake.c`; see [docs/cartridge.md](docs/cartridge.md)
-for the design and [cartridge/ASSEMBLY.md](cartridge/ASSEMBLY.md) for welding the third module.
+set of programs that the CPU runs from outside its own gates. The firmware only shows the menu the cartridge
+describes, and starts what a key picks: BASIC (`cartridge/basic.s`), Snake (`cartridge/snake.c`) and a program
+that works out pi (`cartridge/pi.s`). A new cartridge needs no new CORE or CONSOLE: `cartridge/make_cartridge.py` builds
+one from a list of programs. See [docs/cartridge.md](docs/cartridge.md) for the design and the file format, and
+[cartridge/ASSEMBLY.md](cartridge/ASSEMBLY.md) for welding the third module.
 The pinned default build is unchanged and has no cartridge.
 
 ## World file helper (optional)
@@ -66,7 +68,8 @@ reads the exports. It has not yet been loaded in the game, so try it on a throwa
 
 - `build.py`: command-line entry point.
 - `accelerated/build.py`: explicit current-release build pipeline and checks.
-- `firmware/basic.s`: the current editable BASIC firmware assembly.
+- `firmware/basic.s`: the BASIC firmware assembly of the pinned build.
+- `firmware/menu.s`: the generic firmware of a `--beta` build.
 - `accelerated/cpu.py` and `cpu_components.py`: current CPU generation and transforms.
 - Remaining `accelerated` modules: compiler, storage, console, font, clocks,
   geometry, packet encoding and export helpers used by the build.

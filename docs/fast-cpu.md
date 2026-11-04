@@ -5,6 +5,7 @@ to `release.json`. Nothing has been run in the game: all times are simulator run
 
 ## Results
 
+BASIC has since moved to the cartridge, which costs 13% against the last column here: see [cartridge.md](cartridge.md). This table is the baked firmware.
 Same command sequence on every build, measured by `bench_commands.py` from the ENTER press to the last pixel change.
 The screens after every command match the pinned release on the final build. The Branch Runs screen has six rows, so its
 text is laid out differently, but its results are the same.
@@ -78,6 +79,8 @@ builds anyway.
 
 ## Margin
 
+With baked BASIC, before the cartridge held everything:
+
 | CPU timers | Updates per cycle | BASIC (14 commands) | Snake |
 |---:|---:|---|---|
 | 20/6/12/6 | 49 | correct | correct |
@@ -88,7 +91,7 @@ builds anyway.
 | 12/1/8/1 | 27 | **fails** | not run |
 | 8/2/12/2 | 29 | **fails**: capture too short for the samplers | not run |
 
-So Snake has two updates of margin at the shipped clock. If the game disagrees with the simulator, set the four CPU timers
+The sweep on the current build is in [cartridge.md](cartridge.md): everything still works at 15/2/8/2 and fails at 14/2/8/2. If the game disagrees with the simulator, set the four CPU timers
 back to 20/6/12/6 in-game; no rebuild is needed.
 
 ## Tools

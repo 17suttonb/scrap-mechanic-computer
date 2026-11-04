@@ -359,7 +359,8 @@ def arrange(columns, specs, districts, x, y0, y1, target, gap=2, y_for=None, pla
         share[keys[-1]] += usable - sum(share.values())
         # widen until nothing towers over the rest of the module
         widest = 3 * width
-        while not width_for and width < widest and max(lay_out(specs[k], districts[k], Rect(x, top, width, share[k]), Plan(), 2 * target) for k in keys) > 2 * target:
+        # strips have to fit in the end, however wide that takes
+        while not width_for and (width < widest or any(specs[k].strips for k in keys)) and max(lay_out(specs[k], districts[k], Rect(x, top, width, share[k]), Plan(), 2 * target) for k in keys) > 2 * target:
             width += max(1, width // 8)
         y = top
         for k in keys:
@@ -445,7 +446,7 @@ def cartridge(ids, labels, edges, plan, groups):
     order = [['address', 'rows']] + list(columns.values()) + [['output']]
     order = [c for c in order if any(k in districts for k in c)]
     # about twice as wide as deep, whatever the size; strips wrap into more columns rather than run on in y
-    depth = max(CART_MIN_DEPTH, 2 * max(len(c) for c in order) + 4, math.ceil(math.sqrt(len(ids) / TARGET_HEIGHT['cartridge'] / 2)))
+    depth = max(CART_MIN_DEPTH, 5 * max(len(c) for c in order) + 4, math.ceil(math.sqrt(len(ids) / TARGET_HEIGHT['cartridge'] / 2)))
     arrange(order, specs, districts, CART_LEFT, CART_TOP, CART_TOP + depth, TARGET_HEIGHT['cartridge'], plan=plan)
     key_row(specs, districts, CART_LEFT, CART_KEY_Y, plan)
 

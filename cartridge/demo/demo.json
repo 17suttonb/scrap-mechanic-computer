@@ -1,0 +1,4 @@
+{"title": "DEMO CART", "programs": [
+  {"name": "COUNTER", "source": "counter.s", "mode": "tap", "colour": "F2D21F"},
+  {"name": "ECHO", "source": "echo.s", "mode": "console", "colour": "A6E22E"}
+]}

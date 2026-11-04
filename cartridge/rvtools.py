@@ -22,6 +22,38 @@ def elf_text(path):
     return base, bytes(image)
 
 
+def true_pi(places):
+    """Decimal digits of pi after the point, with exact big integers and Machin's formula."""
+    scale = 10 ** (places + 10)
+
+    def atan_inverse(x):
+        total, term, n, sign = 0, scale // x, 1, 1
+        while term:
+            total += sign * (term // n)
+            term //= x * x
+            n += 2
+            sign = -sign
+        return total
+    return str((16 * atan_inverse(5) - 4 * atan_inverse(239)) // 10 ** 10)[1:]
+
+
+def elf_symbols(path):
+    """{name: address} of the symbols in an ELF file."""
+    d = open(path, 'rb').read()
+    shoff, = struct.unpack_from('<I', d, 0x20)
+    shentsize, shnum, _ = struct.unpack_from('<HHH', d, 0x2E)
+    secs = [struct.unpack_from('<IIIIIIIIII', d, shoff + i * shentsize) for i in range(shnum)]
+    result = {}
+    for s in secs:
+        if s[1] == 2:
+            strings = secs[s[6]]
+            for offset in range(s[4], s[4] + s[5], 16):
+                name, value = struct.unpack_from('<II', d, offset)
+                end = d.index(0, strings[4] + name)
+                result[d[strings[4] + name:end].decode()] = value
+    return result
+
+
 def sx(v, bits):
     v &= (1 << bits) - 1
     return v - (1 << bits) if v >> (bits - 1) else v

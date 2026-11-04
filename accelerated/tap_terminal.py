@@ -44,12 +44,14 @@ def attach(build, queue_depth=0):
             c.connect(p, i)
         return i
     if 'key_toggle' in ports:
-        # A cartridge takes a key by toggling this line: pop the queue directly, without the console's clock.
+        # With single taps a program takes a key by toggling this line: pop the queue directly, without the
+        # console's clock. It is ignored otherwise, so resetting the index in console mode loses no key.
         toggle = ports.pop('key_toggle')['node_ids'][0]
         delayed = toggle
         for i in range(3):
             delayed = gate('OR', [delayed], f'cartridge take delay {i}')
-        taken = gate('OR', [taken, gate('XOR', [toggle, delayed], 'cartridge take')], 'console or cartridge take')
+        change = gate('XOR', [toggle, delayed], 'cartridge take')
+        taken = gate('OR', [taken, gate('AND', [change, ports['cart_mode']['node_ids'][0]], 'cartridge take in tap mode')], 'console or cartridge take')
     clearing = gate('OR', [], 'clear hold')
     raw = gate('OR', keys, 'any physical key')
     raw_history = [raw]
