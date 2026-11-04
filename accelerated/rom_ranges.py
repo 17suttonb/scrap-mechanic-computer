@@ -1,5 +1,6 @@
 from collections import deque
 from functools import lru_cache
+from accelerated import compact_core
 from accelerated.compact_core import analysis_metadata as metadata
 from accelerated.isa import signed
 MASK = 4294967295
@@ -50,8 +51,14 @@ def restrict(a, b, f3, taken):
         return (ra, rb)
     return (a, b)
 
-@lru_cache(maxsize=None)
 def analyze(image):
+    """With a cartridge window open any program can run, so nothing is known about any register."""
+    if compact_core.CART is not None:
+        return dict(passed=True, states={}, values=(frozenset({0}),) + (None,) * 15, visits=0, reachable_pcs=[], unresolved_indirect_jumps=[], out_of_rom_targets=[])
+    return analyze_rom(image)
+
+@lru_cache(maxsize=None)
+def analyze_rom(image):
     rows = metadata(image)
     by_pc = {r['pc']: r for r in rows}
     zero = frozenset({0})

@@ -3,8 +3,9 @@
 Works on a joined export (with its maps) or on a folder of module blueprints that only has link-map.json,
 which are joined here and whose keys, screen and switches are recognised by shape and position.
 
-Usage: Logic-Block-Simulator/runtime/python.exe bench_commands.py <folder> [--script 'H;?2+3;A=32'] [--quiet-after 1500]
-Time is reported at the nominal 40 updates per second, from the ENTER press to the last pixel change.
+Usage: Logic-Block-Simulator/runtime/python.exe bench_commands.py <folder> [--script 'H;?2+3;A=32'] [--quiet-after 1500] [--program 1]
+Time is reported at the nominal 40 updates per second, from the ENTER press to the last pixel change. On a build with a
+program menu, --program is the key that picks BASIC, tapped as soon as the menu lists it.
 """
 import argparse
 import json
@@ -89,6 +90,7 @@ class Machine:
         self.pixel_map = pixels_by_position(bp)
         self.pixels = list(self.pixel_map.values())
         self.sim = make_simulator(bp)
+        self.run, self.reset = run, reset
         self.sim.request_input(reset, True, at_tick=self.sim.time + 1)
         self.sim.request_input(reset, False, at_tick=self.sim.time + 481)
         self.sim.request_input(run, True, at_tick=self.sim.time + 501)
@@ -123,6 +125,37 @@ class Machine:
                 last_state, last_change = state, self.sim.time
         return last_change
 
+    def menu_ready(self, key, limit=16000):
+        """Wait for the menu to list `key`; returns False if the machine has no menu, like a build with BASIC baked in."""
+        begin = self.sim.time
+        self.sim.advance(1000)
+        while self.sim.time - begin < limit:
+            rows = self.text()
+            if any(row.startswith(key + ' ') for row in rows):
+                return True
+            if any(row.startswith('>') for row in rows):
+                return False
+            self.sim.advance(20)
+        raise AssertionError(f'no menu entry {key}: {self.text()}')
+
+    def start_program(self, key, limit=8000):
+        """Pick a program from the menu and wait for it to clear the screen; returns the press time."""
+        at = self.sim.time
+        self.tap(key, 4)
+        return at
+
+    def boot(self, program='1', limit=8000):
+        """Start BASIC from the menu, or just wait for a build that boots into it. Returns the load time in seconds."""
+        if not self.menu_ready(program):
+            self.sim.advance(5000)
+            return 0.0
+        at = self.start_program(program)
+        while self.sim.time - at < limit:
+            self.sim.advance(20)
+            if any(row.startswith('>') for row in self.text()):
+                break
+        return (self.sim.time - at) / 40
+
     def tap(self, name, gap, hold=20):
         key = self.keys[KEY_NAMES.get(name, name)]
         self.sim.request_input(key, True, at_tick=self.sim.time + 1)
@@ -143,11 +176,12 @@ def main():
     p.add_argument('--script', default='H;?2+3;A=32;B=8;?A-B;10 ?123;LIST;RUN')
     p.add_argument('--quiet-after', type=int, default=4000)
     p.add_argument('--cpu-ticks', default=None, help='override the four CPU timer settings, e.g. 20,6,12,6')
+    p.add_argument('--program', default='1', help='the menu key that starts BASIC')
     a = p.parse_args()
     began = time.perf_counter()
     m = Machine(a.folder, [int(v) for v in a.cpu_ticks.split(',')] if a.cpu_ticks else None)
-    m.sim.advance(6000)
-    print('boot', m.text(), flush=True)
+    seconds = m.boot(a.program)
+    print(f'boot, {seconds:.2f} s from the menu key', m.text(), flush=True)
     for line in a.script.split(';'):
         seconds = m.command(line, a.quiet_after)
         print(f'{line:10s} {seconds:8.2f} s  {m.text()}', flush=True)

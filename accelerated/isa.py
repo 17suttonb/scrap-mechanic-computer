@@ -63,8 +63,9 @@ class Program:
     listing: list
     source: str
 
-def assemble(source, compact_li=False):
-    labels = {}
+def assemble(source, compact_li=False, symbols=None):
+    """symbols: names already defined, such as data addresses, for use in expressions."""
+    labels = dict(symbols or {})
     records = []
     pc = 0
     extent = 0
@@ -163,6 +164,12 @@ def assemble(source, compact_li=False):
                     words = [iword(103, r, base, imm)]
                 else:
                     words = [imm >> 5 << 25 | r << 20 | base << 15 | STORE[op] << 12 | (imm & 31) << 7 | 35]
+            elif op == 'sbi':
+                # A cartridge's store of a constant byte: sbi value, offset. Custom-0 opcode, one row, no register.
+                value, offset = ev(args[0]), ev(args[1])
+                if not 0 <= value < 256:
+                    raise ValueError('SBI value must fit a byte')
+                words = [immediate(offset, 12) << 20 | value << 12 | 11]
             elif op in ('ecall', 'ebreak', 'fence'):
                 words = [{'ecall': 115, 'ebreak': 1048691, 'fence': 267386895}[op]]
             else:

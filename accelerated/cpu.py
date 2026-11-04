@@ -26,6 +26,8 @@ def flat_alu():
 
 def frontend(text, image, fast_shifts=False):
     rows = metadata(image)
+    if compact_core.CART is not None:
+        rows = [row for row in rows if row['legal']]
     for r in range(16):
         for name in ('a', 'b'):
             old = f'select_{name}({r}) <= d_r{name} = bits({r},4);'
@@ -257,6 +259,10 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
             nexts.append((site, seq[-1], branch_test))
         lengths[len(seq)].append(site)
     if not selected:
+        if branch_runs:
+            text = replace_once(text, '  next_pc <=', '  normal_next_pc <=')
+            text = replace_once(text, '  signal regs:registers_t;', '  signal normal_next_pc:bit_vector(31 downto 0);\n  signal regs:registers_t;')
+            text = text.rsplit('end;', 1)[0] + '  next_pc <= normal_next_pc;\nend;\n'
         return text
     issue = reduction('or', [f'select_pc({pc // 4})' for pc in selected])
     extra += f'  fusion_issue <= {issue};\n'
@@ -326,8 +332,8 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
     return text.rsplit('end;', 1)[0] + extra + 'end;\n'
 
 def cpu(image, ram_bytes=64, **options):
-    """With `cartridge` set, `image` is the firmware padded to the cartridge window followed by the
-    cartridge: the analyses see all of it but the baked decoder only the firmware."""
+    """With `cartridge` set, `image` is cartridge.generic_image of the firmware: the analyses see a window
+    that could write anything, and the baked decoder only the firmware."""
     from accelerated import cartridge as cart
     cartridge = options.pop('cartridge', None)
     transforms = [flat_result_path] if options.get('beta') else []
@@ -336,7 +342,7 @@ def cpu(image, ram_bytes=64, **options):
             return firmware_cpu(image, ram_bytes, **options)
     with cart.window(), cart.board_storage(), final_text_hook([cart.cpu_source, cart.note_board_lines] + transforms):
         result = firmware_cpu(image, ram_bytes, **options)
-    result.report['cpu']['cartridge'] = dict(base=cart.BASE, words=len(cartridge) // 4, address_bits=cart.ADDRESS_BITS)
+    result.report['cpu']['cartridge'] = dict(base=cart.BASE, words=cart.WORDS, address_bits=cart.ADDRESS_BITS)
     return result
 
 @contextmanager
@@ -394,11 +400,11 @@ def flat_result_path(text):
     taken = re.search(r'^  taken <= eq when.*?;$', text, re.M | re.S)
     flat = '  taken <= or_reduce(((funct3 = bits(0,3)) and eq) & ((funct3 = bits(1,3)) and not eq) & ((funct3 = bits(4,3)) and slt) & ((funct3 = bits(5,3)) and not slt) & ((funct3 = bits(6,3)) and ult) & ((funct3 = bits(7,3)) and not ult));'
     text = text[:taken.start()] + flat + chr(10) * taken[0].count(chr(10)) + text[taken.end():]
-    # Register-addressed firmware loads (program text, input stream, variables) are the deepest
-    # remaining paths: give them a second cycle. Cartridge rows do not reach text or the stream,
-    # so their board reads stay single-cycle.
+    # Register-addressed loads (program text, input stream, variables, the data port) are the deepest
+    # remaining paths: give them a second cycle. Board mode reaches none of them, so its board reads
+    # stay single-cycle.
     slow = re.search(r'^  slow_class <= [^;]*;', text, re.M)
-    fast_rows = ' and not cart_legal' if 'cart_legal' in text else ''
+    fast_rows = ' and not board_mode' if 'board_mode' in text else ''
     text = text[:slow.end() - 1] + f' or (d_load and not d_static_memory{fast_rows})' + text[slow.end() - 1:]
     # Console registers are only ever addressed statically: decode them from the instruction alone.
     for name, value in (('region_input', 536870882), ('region_gpio', 536870880)):
@@ -414,7 +420,7 @@ def flat_result_path(text):
     # The next PC: same flattening, on the path from a branch comparison to the PC.
     old = "  normal_next_pc <= alu_y(31 downto 1) & '0' when d_jalr else d_target when d_jal or (d_branch and taken) or (pair_issue and pair_taken) else d_link;"
     assert text.count(old) == 1
-    key = ' or (cart_key and ready_seen) or (cart_nokey and not ready_seen)' if 'cart_legal' in text else ''
+    key = ' or (cart_key and ready_seen) or (cart_nokey and not ready_seen)' if 'board_mode' in text else ''
     text = text.replace(old, f'  next_take <= (d_jal or (d_branch and taken) or (pair_issue and pair_taken){key}) and not d_jalr;  next_link <= not (d_jalr or d_jal or (d_branch and taken) or (pair_issue and pair_taken){key});')
     for bit in range(32):
         jump = f'(d_jalr and alu_y({bit})) & ' if bit else ''

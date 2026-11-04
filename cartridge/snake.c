@@ -18,8 +18,8 @@
  *   13, 14  The score, as binary digits, statically addressed, shown directly on the bottom row.
  *   29      A store of LOST or WON here writes the result on the bottom row, over the word SCORE.
  *
- * Before jumping here the firmware has cleared the 64-byte RAM.  Rows 4..6 are clear after any RESET,
- * and only a cartridge can write them.  The console has blanked the screen, drawn "00 SCORE" and
+ * RESET has cleared the 64-byte RAM and board rows 4..6, and the firmware's menu leaves them alone.  Only a
+ * program in board mode can write the rows.  Entering board mode blanked the screen, drew "00 SCORE" and
  * stopped echoing keys.  No registers need setting.
  *
  * A body cell holds the step to the next body cell, so moving the head is one add and the tail
@@ -35,7 +35,7 @@
  * board and the score on the screen; see docs/cartridge.md.
  *
  * Steer with a single tap of W, A, S or D.  No ENTER.  Taps queue, and one is applied per move.  RESET
- * returns to BASIC.  Registers x1, x8 and x9 are left alone so the function needs no stack.
+ * returns to the menu.  Registers x1, x8 and x9 are left alone so the function needs no stack.
  */
 #define BOARD ((volatile signed char *)0)
 #define CELLS ((volatile unsigned char *)0)   /* the same bytes, when only the kind of cell matters */
@@ -54,6 +54,8 @@
 /* Keeps the compiler from moving rarely used constants out of the loop, which would need a stack. */
 #define LOCAL(x) __asm__ volatile("" : "+r"(x))
 #define STEER(step, position) __asm__ volatile("add zero,%1,zero\n\tlb %0,-234(zero)" : "+r"(step) : "r"(position))
+/* A part of the program, for the cartridge's layout: from here on its gates are grouped under this name. */
+#define GROUP(name) __asm__ volatile("group_" #name ":")
 
 void __attribute__((noreturn)) _start(void) {
     int head = 3 * STRIDE + 6, tail = 3 * STRIDE + 5, step = 1, food = 5 * STRIDE + 6, food_mark = 2, head_mark = 4;
@@ -69,6 +71,7 @@ void __attribute__((noreturn)) _start(void) {
     BOARD[head] = head_mark;
     BOARD[food] = food_mark;
 
+    GROUP(snake_move);
     for (;;) {
         BOARD[head] = step;
         head += step;
@@ -77,6 +80,7 @@ void __attribute__((noreturn)) _start(void) {
         BOARD[head] = head_mark;
         if (__builtin_expect(cell != 0, 0)) {
             if (cell == food_mark) {
+                GROUP(snake_food);
                 int ones = ONES + 1;
                 near = 9;
                 LOCAL(near);
@@ -104,6 +108,7 @@ void __attribute__((noreturn)) _start(void) {
                 goto steer;
             }
             if (cell != 0) {
+                GROUP(snake_over);
                 near = LOST;
 over:
                 LOCAL(near);
