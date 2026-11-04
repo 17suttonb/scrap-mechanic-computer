@@ -262,6 +262,9 @@ def build(root, flat=False, solid=False, districts=False, total=2, attached=Fals
             block(-20, pad_y, 2, color='D96852')
             label('WELD', -25, weld_y)
         if domain in plans:
+            for x, y, w, d in dist.wall_boxes(plans[domain].walls):
+                for piece in box(x, y, 1, w, d, dist.WALL_HEIGHT):
+                    piece['color'] = dist.WALL_COLOUR
             for text, x, y, colour in plans[domain].signs:
                 label(text, x, y)
                 children[-1]['color'] = colour

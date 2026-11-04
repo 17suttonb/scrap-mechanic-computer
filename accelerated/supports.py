@@ -123,7 +123,7 @@ def sparse_supports(blueprint, strict=False, plates=()):
     for child in children:
         for cell in occupied_cells(child):
             if cell in occupied:
-                raise ValueError(f'Overlapping physical parts at {cell}')
+                raise ValueError(f'Overlapping physical parts at {cell}: {[(c["shapeId"][:6], c["pos"], c["bounds"] if "bounds" in c else None) for c in children if cell in occupied_cells(c)]}')
             occupied.add(cell)
     plate_cells = {xy[:2] for c in plates for xy in occupied_cells(c)}
     joins = set()

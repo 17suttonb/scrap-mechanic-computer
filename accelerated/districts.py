@@ -13,7 +13,9 @@ import math
 import re
 from accelerated.signs import choose_sign
 
-TARGET_HEIGHT = dict(cpu=12, terminal=11, cartridge=4)   # average storeys a column is widened to reach
+TARGET_HEIGHT = dict(cpu=6, terminal=6, cartridge=3)   # average storeys a column is widened to reach: low, so the tops show
+WALL_COLOUR = '9AA3AD'
+WALL_HEIGHT = 2
 CORE_Y = (37, 71)
 CORE_LEFT = -15
 CORE_KEY_Y = 34
@@ -22,7 +24,7 @@ CONSOLE_LEFT = -16          # the left edge of the screen's pixels: character ce
 CONSOLE_Y = (5, 27)
 CONSOLE_KEY_Y = 2
 CONSOLE_ANNEX_X = 58
-CONSOLE_ANNEX_Y = (6, 27)
+CONSOLE_ANNEX_Y = (7, 27)
 CART_LEFT = -15
 CART_KEY_Y = 82
 CART_TOP = 85
@@ -46,6 +48,7 @@ class Spec:
     title_sign: bool = True
     solid: bool = False     # one building, its signals side by side, instead of a tile per block
     strips: bool = False    # every block a one-thick strip as long as it needs: a bar chart
+    wall: bool = True       # a wall of blocks round the district and its sign, shared with its neighbours
 
 CORE = dict(
     pc=Spec('PC FETCH', 'E0559B', solid=True),
@@ -68,7 +71,7 @@ CORE = dict(
 CORE_COLUMNS = [['pc', 'rom', 'fields'], ['fusion', 'branch'], ['regs'], ['ports', 'result'], ['alu', 'shifter', 'memport'], ['ram'], ['text'], ['textmux', 'textctl', 'bus']]
 
 CONSOLE = dict(
-    cells=Spec('CHARACTER CELLS', 'D65CFF', per_row=12, gap=(1, 1), tone='checker', title_sign=False),
+    cells=Spec('CHARACTER CELLS', 'D65CFF', per_row=12, gap=(1, 1), tone='checker', title_sign=False, wall=False),
     queue=Spec('KEY QUEUE', '35C759', solid=True),
     keyboard=Spec('KEYBOARD', 'A6E22E', solid=True),
     linebuf=Spec('LINE BUFFER', '3F7FEA', solid=True),
@@ -244,6 +247,7 @@ class Plan:
     colour: dict = field(default_factory=dict)
     signs: list = field(default_factory=list)      # (text, x, y, colour)
     report: dict = field(default_factory=dict)
+    walls: set = field(default_factory=set)        # (x, y) cells of the dividing walls
 
 def choose_grid(spec, count, rect, tallest=0, limit=1e9):
     """(tiles across, rows, tile width, tile depth, gaps) that fit; the gaps give way first if they must."""
@@ -364,15 +368,41 @@ def arrange(columns, specs, districts, x, y0, y1, target, gap=2, y_for=None, pla
             width += max(1, width // 8)
         y = top
         for k in keys:
+            first = y
             if specs[k].title_sign:
                 plan.signs.append((specs[k].title, x, y, shade(specs[k].colour, 0.1)))
                 y += 2
             rect = Rect(x, y, width, share[k])
             high = lay_out(specs[k], districts[k], rect, plan, 2 * target)
             plan.report[k] = dict(title=specs[k].title, colour=specs[k].colour, logic_blocks=counts[k], blocks=len(districts[k]), x=x, y=y, width=width, depth=share[k], top_z=high)
+            if specs[k].wall:
+                plan.walls |= {(wx, wy) for wx in range(x - 1, x + width + 1) for wy in range(first - 1, y + share[k] + 1) if wx in (x - 1, x + width) or wy in (first - 1, y + share[k])}
             y += share[k] + 1
         x += width + gap
     return x
+
+def wall_boxes(cells):
+    """Cover wall cells with as few boxes as possible: runs along x, then equal runs in consecutive rows."""
+    runs = {}
+    for x, y in sorted(cells, key=lambda c: (c[1], c[0])):
+        if (x - 1, y) in cells:
+            runs[y][-1][1] += 1
+        else:
+            runs.setdefault(y, []).append([x, 1])
+    boxes = []
+    open_boxes = {}
+    for y in sorted(runs):
+        now = {}
+        for x, w in runs[y]:
+            if (x, w) in open_boxes and open_boxes[x, w][1] + open_boxes[x, w][3] == y:
+                box = open_boxes[x, w]
+                box[3] += 1
+            else:
+                box = [x, y, w, 1]
+                boxes.append(box)
+            now[x, w] = box
+        open_boxes = now
+    return boxes
 
 def sign_width(text):
     return choose_sign(text).size[0]

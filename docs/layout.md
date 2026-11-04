@@ -24,6 +24,8 @@ Shapes (`Spec`):
 | `strips` | one-thick bars as long as the block needs, like a bar chart | fusion lanes, cartridge row decoders and output fields |
 | `solid` | one plain building in id order | glue logic: bus control, keyboard, service and so on |
 
+**Walls.** Every district, with its sign, sits in a rectangle of grey blocks (`WALL_COLOUR`, `WALL_HEIGHT` 2 high, one thick) that stands in the gaps between districts, so neighbours share a wall. `Spec.wall=False` leaves one out (the console's character cells, which keep the screen's pitch). The walls are plain blocks merged into as few boxes as possible (`wall_boxes`), and cost about 3 kB on CORE and 2 kB on CONSOLE. `TARGET_HEIGHT` is 6, 6 and 3 storeys, so the layout is wide and low (CORE about 230 by 33, tallest tower 19, where it used to be tallest by far) and the tops of the buildings can be seen from the front.
+
 Tiles alternate between two shades of the district's colour. Heights are real: an uneven skyline means an uneven amount of logic, as in the carry lookahead, whose towers rise with the bit number.
 
 Every district has a sign in its colour at its near edge, and a colour key runs along the module (`key_row`): CORE at y=34, CONSOLE at y=2, CARTRIDGE at y=82.

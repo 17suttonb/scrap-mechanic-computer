@@ -91,6 +91,12 @@ def build(image, output, districts=True, total=3):
     label('WELD', -25, SEAM_CART_Y + 3)
     for text, x, y, colour in signs:
         label(text, x, y, colour)
+    if districts:
+        for x, y, w, d in dist.wall_boxes(plan.walls):
+            for dx in range(0, w, 64):
+                for dy in range(0, d, 64):
+                    block(x + dx, y + dy, 1, min(64, w - dx), min(64, d - dy), dist.WALL_HEIGHT)
+                    children[-1]['color'] = dist.WALL_COLOUR
     bp = dict(bodies=[dict(childs=children)], version=4)
     support = sparse_supports(bp, strict=True)
     occupied = Counter(c for p in bp['bodies'][0]['childs'] for c in occupied_cells(p))
