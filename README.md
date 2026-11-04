@@ -54,6 +54,14 @@ The cartridge is a ROM generated from `cartridge/snake.c`; see [docs/cartridge.m
 for the design and [cartridge/ASSEMBLY.md](cartridge/ASSEMBLY.md) for welding the third module.
 The pinned default build is unchanged and has no cartridge.
 
+## World file helper (optional)
+
+Welding and wiring the modules by hand stays the normal, fully supported way to build the computer.
+`python -I tools/make_world.py <export-folder> --template <new-world.db> --output out-world/computer.db`
+instead writes a copy of a flat or custom-world Creative save with the whole computer already placed, welded and wired. It only
+reads the exports. It has not yet been loaded in the game, so try it on a throwaway world first: see
+[docs/world-file.md](docs/world-file.md).
+
 ## Source layout
 
 - `build.py`: command-line entry point.
