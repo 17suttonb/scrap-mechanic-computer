@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-03",
+  "clean_extraction_isolated_source_rebuild_passed": true,
+  "modified_firmware_rejected_before_export": true,
+  "python": "CPython 3.13.17 x64 Windows",
+  "modules": {
+    "cpu": {
+      "expected": "93b2a7c859252564a082a070694dc787e4457eaea472419f1fe22e1b80d4bbcf",
+      "rebuilt": "93b2a7c859252564a082a070694dc787e4457eaea472419f1fe22e1b80d4bbcf",
+      "identical": true,
+      "byte_for_byte_equal": true,
+      "bytes": 5689505,
+      "packet_bytes": 480971
+    },
+    "terminal": {
+      "expected": "155ffbc039f942f8a2e8eb1a5b1f486e0345f8525f01f52ff43e1784f003c639",
+      "rebuilt": "155ffbc039f942f8a2e8eb1a5b1f486e0345f8525f01f52ff43e1784f003c639",
+      "identical": true,
+      "byte_for_byte_equal": true,
+      "bytes": 2718388,
+      "packet_bytes": 246602
+    }
+  },
+  "native_game_test_rerun": false,
+  "notes": "Both blueprint.json files rebuilt from the standalone source in a clean extraction using python -I, then compared directly against the selected release bytes. Export folder UUIDs and description.localId intentionally vary."
+}

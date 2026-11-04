@@ -1,0 +1,72 @@
+KEY_ROWS = [list('1234567890+-'), list('QWERTYUIOP'), list('ASDFGHJKL=?'), list('ZXCVBNM') + ['SPACE', 'BKSP', 'ENTER']]
+KEYS = [key for row in KEY_ROWS for key in row]
+KEY_CODES = {key: ord(key) for key in KEYS if len(key) == 1}
+KEY_CODES.update(SPACE=32, BKSP=8, ENTER=13)
+BOOT = ('TBASIC  ', 'READY   ', '>       ', '        ')
+HELP = ('? EXPR  ', 'A=EXPR  ', '+ - C H ', '>       ')
+FAULT = ('CPU ERR ', 'RESET   ', 'REQUIRED', '        ')
+FONT = {' ': ('000', '000', '000', '000', '000'), 'A': ('010', '101', '111', '101', '101'), 'B': ('110', '101', '110', '101', '110'), 'C': ('011', '100', '100', '100', '011'), 'D': ('110', '101', '101', '101', '110'), 'E': ('111', '100', '110', '100', '111'), 'F': ('111', '100', '110', '100', '100'), 'G': ('011', '100', '101', '101', '011'), 'H': ('101', '101', '111', '101', '101'), 'I': ('111', '010', '010', '010', '111'), 'J': ('001', '001', '001', '101', '010'), 'K': ('101', '101', '110', '101', '101'), 'L': ('100', '100', '100', '100', '111'), 'M': ('101', '111', '111', '101', '101'), 'N': ('101', '111', '111', '111', '101'), 'O': ('010', '101', '101', '101', '010'), 'P': ('110', '101', '110', '100', '100'), 'Q': ('010', '101', '101', '111', '011'), 'R': ('110', '101', '110', '101', '101'), 'S': ('011', '100', '010', '001', '110'), 'T': ('111', '010', '010', '010', '010'), 'U': ('101', '101', '101', '101', '111'), 'V': ('101', '101', '101', '101', '010'), 'W': ('101', '101', '111', '111', '101'), 'X': ('101', '101', '010', '101', '101'), 'Y': ('101', '101', '010', '010', '010'), 'Z': ('111', '001', '010', '100', '111'), '0': ('111', '101', '101', '101', '111'), '1': ('010', '110', '010', '010', '111'), '2': ('110', '001', '010', '100', '111'), '3': ('110', '001', '010', '001', '110'), '4': ('101', '101', '111', '001', '001'), '5': ('111', '100', '110', '001', '110'), '6': ('011', '100', '111', '101', '111'), '7': ('111', '001', '010', '010', '010'), '8': ('111', '101', '111', '101', '111'), '9': ('111', '101', '111', '001', '110'), '+': ('000', '010', '111', '010', '000'), '-': ('000', '000', '111', '000', '000'), '=': ('000', '111', '000', '111', '000'), '?': ('110', '001', '010', '000', '010'), '>': ('100', '010', '001', '010', '100'), '.': ('000', '000', '000', '000', '010')}
+
+def terminal_source(boot_text=BOOT, help_text=HELP, *, expose_length=False):
+    if len(boot_text) != 4 or any((len(row) != 8 for row in boot_text)):
+        raise ValueError('Boot text must have four eight-character rows')
+    if len(help_text) != 4 or any((len(row) != 8 for row in help_text)):
+        raise ValueError('Help text must have four eight-character rows')
+    n = len(KEYS)
+    leaves = 1
+    while leaves < n:
+        leaves *= 2
+    source = f"entity rv_terminal is\n  port(capture,commit,reset,faulted:in bit;\n       gpio:in bit_vector(31 downto 0); keys:in bit_vector({n - 1} downto 0);\n       keyboard_data:out bit_vector(7 downto 0); busy,full:out bit;\n       terminal_pixels:out bit_vector(767 downto 0));\nend;\narchitecture gates of rv_terminal is\n  type cells_t is array(0 to 31) of bit_vector(5 downto 0);\n  type line_t is array(0 to 22) of bit_vector(5 downto 0);\n  type words_t is array(0 to 3) of bit_vector(5 downto 0);\n  type select_t is array(0 to 31) of bit_vector(63 downto 0);\n  type bcd_t is array(0 to 255) of bit_vector(11 downto 0);\n  signal cells,storage,visible,screen_input:cells_t; signal line:line_t; signal glyph_select:select_t;\n  signal bcd_rom:bcd_t; signal bcd:bit_vector(11 downto 0);\n  signal raw_code,code,code_stage,previous_code,previous_code_stage:bit_vector(6 downto 0);\n  signal number_abs:bit_vector(7 downto 0);\n  signal presence,collision:bit_vector({leaves * 2 - 1} downto 0);\n  signal any_key,held,held_next,held_stage,ready,ready_next,ready_stage,seen,seen_next,seen_stage:bit;\n  signal sample_any,sample_any_stage,previous_any,previous_any_stage,valid_key,valid_key_stage,previous_valid,previous_valid_stage,stable_press:bit;\n  signal cap_en,com_en,key_event,key_print,key_back,key_enter,tx,ack:bit;\n  signal boot_event,help_event,prompt_event,error_event,number_event,cpu_print,newline_event:bit;\n  signal before_line,after_line,advance,rotate:bit;\n  signal row_q,row_next,row_stage,row_store,base_q,base_next,base_stage,target_row,clear_row:bit_vector(1 downto 0);\n  signal col_q,col_next,col_stage,col_store:bit_vector(2 downto 0);\n  signal length_q,length_next,length_stage:bit_vector(4 downto 0);\n  signal emit_addr,emit_addr_stage,input_addr_stage:bit_vector(4 downto 0);\n  signal emit_count,emit_count_stage:bit_vector(2 downto 0);\n  signal emit_words,emit_stage:words_t;\n  signal clear_stage,input_write_stage:bit; signal clear_row_stage:bit_vector(1 downto 0);\n  signal page,page_stage:bit_vector(1 downto 0); signal input_data_stage:bit_vector(5 downto 0);\n  signal input_char:bit_vector(6 downto 0); signal cursor_row:bit_vector(1 downto 0);\n  signal row_select:bit_vector(3 downto 0);\nbegin\n  cap_en <= capture and not commit and not reset;\n  com_en <= commit and not capture and not reset;\n  presence(0) <= '0'; collision(0) <= '0';\n"
+    for i in range(leaves):
+        source += f'  presence({leaves + i}) <= ' + (f'keys({i})' if i < n else "'0'") + f"; collision({leaves + i}) <= '0';\n"
+    for i in range(leaves - 1, 0, -1):
+        source += f'  presence({i}) <= presence({2 * i}) or presence({2 * i + 1});\n'
+        source += f'  collision({i}) <= collision({2 * i}) or collision({2 * i + 1}) or (presence({2 * i}) and presence({2 * i + 1}));\n'
+    for bit in range(7):
+        terms = [f'keys({i})' for i, key in enumerate(KEYS) if KEY_CODES[key] & 1 << bit]
+        source += f'  raw_code({bit}) <= ' + ('or_reduce(' + ' & '.join(terms) + ')' if terms else "'0'") + ';\n'
+    source += '  any_key <= presence(1);\n  code_stage <= latch(raw_code,cap_en,reset); code <= latch(code_stage,com_en,reset);\n  previous_code_stage <= latch(code,cap_en,reset); previous_code <= latch(previous_code_stage,com_en,reset);\n  sample_any_stage <= latch(any_key,cap_en,reset); sample_any <= latch(sample_any_stage,com_en,reset);\n  previous_any_stage <= latch(sample_any,cap_en,reset); previous_any <= latch(previous_any_stage,com_en,reset);\n  valid_key_stage <= latch(not collision(1),cap_en,reset); valid_key <= latch(valid_key_stage,com_en,reset);\n  previous_valid_stage <= latch(valid_key,cap_en,reset); previous_valid <= latch(previous_valid_stage,com_en,reset);\n  stable_press <= sample_any and previous_any and (code = previous_code);\n  ack <= gpio(29);\n  tx <= gpio(16) and not seen;\n  busy <= ready or ack or faulted or tx;\n  full <= length_q = bits(23,5);\n  key_event <= stable_press and valid_key and previous_valid and not held and not ready and not ack and not faulted and not tx;\n  key_print <= key_event and (code >= bits(32,7)) and (code <= bits(95,7)) and (length_q < bits(23,5));\n  key_back <= key_event and (code = bits(8,7)) and (length_q /= bits(0,5));\n  key_enter <= key_event and (code = bits(13,7));\n  cpu_print <= tx and not gpio(17) and (gpio(7 downto 0) >= bits(32,8)) and (gpio(7 downto 0) <= bits(95,8));\n  boot_event <= tx and not gpio(17) and (gpio(7 downto 0) = bits(12,8));\n  help_event <= tx and not gpio(17) and (gpio(7 downto 0) = bits(1,8));\n  prompt_event <= tx and not gpio(17) and (gpio(7 downto 0) = bits(2,8));\n  error_event <= tx and not gpio(17) and (gpio(7 downto 0) = bits(3,8));\n  number_event <= tx and gpio(17);\n  newline_event <= key_enter or (tx and not gpio(17) and (gpio(7 downto 0) = bits(10,8)));\n  before_line <= (prompt_event or error_event or number_event) and (col_q /= bits(0,3));\n  after_line <= newline_event or ((key_print or cpu_print) and (col_q = bits(7,3)));\n  advance <= before_line or after_line;\n  rotate <= advance and (row_q = base_q + bits(3,2));\n  target_row <= row_q + bits(1,2) when before_line or newline_event else row_q;\n  clear_row <= row_q + bits(1,2);\n  row_next <= bits(2,2) when boot_event else bits(3,2) when help_event else\n              row_q - bits(1,2) when key_back and (col_q = bits(0,3)) else\n              row_q + bits(1,2) when advance else row_q;\n  col_next <= bits(1,3) when boot_event or help_event or prompt_event else\n              bits(4,3) when number_event else bits(3,3) when error_event else\n              col_q - bits(1,3) when key_back else bits(0,3) when advance else\n              col_q + bits(1,3) when key_print or cpu_print else col_q;\n  base_next <= bits(0,2) when boot_event or help_event else base_q + bits(1,2) when rotate else base_q;\n  length_next <= bits(0,5) when ack else length_q + bits(1,5) when key_print else\n                 length_q - bits(1,5) when key_back else length_q;\n  held_next <= \'0\' when not sample_any and not previous_any else held or stable_press;\n  ready_next <= \'0\' when ack else ready or key_enter;\n  seen_next <= gpio(16);\n  row_stage <= latch(row_next xor bits(2,2),cap_en,reset);\n  row_store <= latch(row_stage,com_en,reset); row_q <= row_store xor bits(2,2);\n  col_stage <= latch(col_next xor bits(1,3),cap_en,reset);\n  col_store <= latch(col_stage,com_en,reset); col_q <= col_store xor bits(1,3);\n  base_stage <= latch(base_next,cap_en,reset); base_q <= latch(base_stage,com_en,reset);\n  length_stage <= latch(length_next,cap_en,reset); length_q <= latch(length_stage,com_en,reset);\n  held_stage <= latch(held_next,cap_en,reset); held <= latch(held_stage,com_en,reset);\n  ready_stage <= latch(ready_next,cap_en,reset); ready <= latch(ready_stage,com_en,reset);\n  seen_stage <= latch(seen_next,cap_en,reset); seen <= latch(seen_stage,com_en,reset);\n  emit_count <= bits(4,3) when number_event else bits(3,3) when error_event else\n                bits(1,3) when prompt_event or key_print or key_back or cpu_print else bits(0,3);\n  emit_addr <= (row_q - bits(1,2)) & bits(7,3) when key_back and (col_q = bits(0,3)) else\n               row_q & (col_q - bits(1,3)) when key_back else target_row & bits(0,3) when number_event or error_event or prompt_event else row_q & col_q;\n  number_abs <= (not gpio(7 downto 0)) + bits(1,8) when gpio(7) else gpio(7 downto 0);\n  bcd <= bcd_rom(to_integer(number_abs));\n  emit_words(0) <= bits(13,6) when number_event and gpio(7) else bits(0,6) when number_event else\n                   bits(37,6) when error_event else bits(30,6) when prompt_event else bits(0,6) when key_back else\n                   code(5 downto 0) xor bits(32,6) when key_print else gpio(5 downto 0) xor bits(32,6);\n  emit_words(1) <= "01" & bcd(11 downto 8) when number_event else bits(50,6);\n  emit_words(2) <= "01" & bcd(7 downto 4) when number_event else bits(50,6);\n  emit_words(3) <= "01" & bcd(3 downto 0);\n  emit_count_stage <= latch(emit_count,cap_en,reset); emit_addr_stage <= latch(emit_addr,cap_en,reset);\n  words:for j in 0 to 3 generate emit_stage(j) <= latch(emit_words(j),cap_en,reset); end generate;\n  clear_stage <= latch(advance,cap_en,reset); clear_row_stage <= latch(clear_row,cap_en,reset);\n  page <= bits(1,2) when boot_event else bits(2,2) when help_event else bits(0,2);\n  page_stage <= latch(page,cap_en,reset);\n  input_write_stage <= latch(key_print,cap_en,reset);\n  input_addr_stage <= latch(length_q,cap_en,reset);\n  input_data_stage <= latch(code(5 downto 0) xor bits(32,6),cap_en,reset);\n  input_cells:for i in 0 to 22 generate\n    line(i) <= latch(input_data_stage,com_en and input_write_stage and (input_addr_stage = bits(i,5)),reset);\n  end generate;\n  input_char <= resize(line(to_integer(gpio(28 downto 24))),7) + bits(32,7) when (gpio(28 downto 24) < length_q) else bits(0,7);\n  keyboard_data <= \'1\' & input_char when ready else x"00";\n  cursor_row <= row_q - base_q;\n'
+    for i in range(256):
+        source += f'  bcd_rom({i}) <= x"{i // 100:X}{i // 10 % 10:X}{i % 10:X}";\n'
+    for row in range(4):
+        source += f'  row_select({row}) <= (base_q = bits({row},2)) and not faulted;\n'
+    for i in range(32):
+        boot = ord(''.join(boot_text)[i]) - 32
+        help_code = ord(''.join(help_text)[i]) - 32
+        writes = [f'((emit_count_stage > bits({j},3)) and (emit_addr_stage = bits({(i - j) % 32},5)))' for j in range(4)]
+        enable = ' or '.join(writes + [f'(clear_stage and clear_row_stage = bits({i // 8},2))', 'or_reduce(page_stage)'])
+        source += f'  cells({i}) <= storage({i}) xor bits({boot},6);\n'
+        for bit in range(6):
+            terms = [f'(emit_stage({j})({bit}) and {cond})' for j, cond in enumerate(writes)]
+            if boot >> bit & 1:
+                terms.append('(page_stage = bits(1,2))')
+            if help_code >> bit & 1:
+                terms.append('(page_stage = bits(2,2))')
+            source += f'  screen_input({i})({bit}) <= or_reduce(' + ' & '.join(terms) + ');\n'
+        source += f'  storage({i}) <= latch(screen_input({i}) xor bits({boot},6),com_en and ({enable}),reset);\n'
+        fault = ord(''.join(FAULT)[i]) - 32
+        for bit in range(6):
+            terms = [f'(cells({physical * 8 + i % 8})({bit}) and row_select({(physical - i // 8) % 4}))' for physical in range(4)]
+            if fault >> bit & 1:
+                terms.append('faulted')
+            source += f'  visible({i})({bit}) <= or_reduce(' + ' & '.join(terms) + ');\n'
+        for code in range(64):
+            char = chr(code + 32)
+            source += f'  glyph_select({i})({code}) <= ' + (f'(visible({i}) = bits({code},6))' if char in FONT and char != ' ' else "'0'") + ';\n'
+    for y in range(24):
+        for x in range(32):
+            pixel = y * 32 + x
+            if x % 4 == 3:
+                value = "'0'"
+            elif y % 6 == 5:
+                value = f'(cursor_row = bits({y // 6},2)) and (col_q = bits({x // 4},3)) and not ready and not faulted'
+            else:
+                terms = [f'glyph_select({y // 6 * 8 + x // 4})({ord(char) - 32})' for char, glyph in FONT.items() if glyph[y % 6][x % 4] == '1']
+                value = 'or_reduce(' + ' & '.join(terms) + ')' if terms else "'0'"
+            source += f'  terminal_pixels({pixel}) <= {value};\n'
+    source += 'end;\n'
+    if expose_length:
+        from accelerated.async_bus import replace_once
+        source = replace_once(source, 'keyboard_data:out bit_vector(7 downto 0); busy,full:out bit;', 'keyboard_data:out bit_vector(7 downto 0);keyboard_length:out bit_vector(4 downto 0); busy,full:out bit;')
+        source = source.rsplit('end;', 1)[0] + '  keyboard_length <= length_q;\nend;\n'
+    return source

@@ -1,0 +1,88 @@
+{
+  "release": "RV32E - accelerated CORE 1 of 2",
+  "modules": {
+    "cpu": {
+      "blueprint_name": "RV32E - accelerated CORE 1 of 2",
+      "blueprint_sha256": "93b2a7c859252564a082a070694dc787e4457eaea472419f1fe22e1b80d4bbcf",
+      "packet_bytes": 480971
+    },
+    "terminal": {
+      "blueprint_name": "RV32E - accelerated CONSOLE 2 of 2",
+      "blueprint_sha256": "155ffbc039f942f8a2e8eb1a5b1f486e0345f8525f01f52ff43e1784f003c639",
+      "packet_bytes": 246602
+    }
+  },
+  "cpu_ticks": [
+    20,
+    6,
+    12,
+    6
+  ],
+  "service_ticks": [
+    0,
+    8,
+    0,
+    12
+  ],
+  "bridges": 46,
+  "joined_blueprint_sha256": "a02366a2121c6910cce6253370700be3a22412339ab06a368421e57870f2c952",
+  "firmware_sha256": "7a59399a50e92d523c5001e3859f8c22072c6786ef2199c41db49fff855f5c0a",
+  "source_packet_orders": {
+    "child_order": [
+      "pos",
+      "color",
+      "zaxis",
+      "xaxis",
+      "shapeId",
+      "controller"
+    ],
+    "controller_order": [
+      "joints",
+      "active",
+      "mode",
+      "controllers",
+      "id"
+    ],
+    "pos_order": [
+      "x",
+      "z",
+      "y"
+    ],
+    "bytes": 507790
+  },
+  "release_packet_orders": {
+    "child_order": [
+      "pos",
+      "zaxis",
+      "shapeId",
+      "color",
+      "xaxis",
+      "controller"
+    ],
+    "controller_order": [
+      "mode",
+      "joints",
+      "active",
+      "controllers",
+      "id"
+    ],
+    "pos_order": [
+      "x",
+      "z",
+      "y"
+    ]
+  },
+  "native_functional_verified": false,
+  "boot_text": [
+    "TBASIC+ ",
+    "16 LINES",
+    ">       ",
+    "        "
+  ],
+  "help_text": [
+    "?EXPR A=EXPR",
+    "RUN LIST NEW",
+    "GOTO IF END ",
+    ">           "
+  ]
+}

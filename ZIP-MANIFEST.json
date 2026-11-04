@@ -1,0 +1,249 @@
+{
+  "release": "RV32E accelerated minimal standalone",
+  "files": {
+    "accelerated/__init__.py": {
+      "bytes": 78,
+      "sha256": "3fe17cdf828033432b82e25f50c2c587a5228b94aa2b4d491d9efaba58fc51d9"
+    },
+    "accelerated/ack_capture.py": {
+      "bytes": 4617,
+      "sha256": "b00aed9ab8a3a0c5a136bc237fa224dd95d25b2975ee4e3c8ef7be4b94d59aa8"
+    },
+    "accelerated/alu32.py": {
+      "bytes": 3324,
+      "sha256": "5fd2777704ce34964e8cbe4d0656269ae3cd010ed39d1292a9dc3c03e6fa65b0"
+    },
+    "accelerated/async_bus.py": {
+      "bytes": 8580,
+      "sha256": "3d18d6acc3978c00911e51b0aebafda2b86e6102d9ba6ec86d6f7d2019a48215"
+    },
+    "accelerated/branch_frontend.py": {
+      "bytes": 1356,
+      "sha256": "dda0bfbde79745e501b7523ae25c2c128879bb04c8b31d8929559133f01bea6f"
+    },
+    "accelerated/build.py": {
+      "bytes": 4316,
+      "sha256": "c97a3f002cbb41e098a8c01349b700f994be404f6dabaee19dc52e12867f14d8"
+    },
+    "accelerated/character_terminal.py": {
+      "bytes": 6897,
+      "sha256": "0e8a8f9ad827126f119d3b012a7d3d5f61a608541a324131d2fc99aa99a57120"
+    },
+    "accelerated/circuit.py": {
+      "bytes": 9897,
+      "sha256": "4a106de99f7f367d835f3595572124368ebc8c078bdbfd2640564fff1007ef7d"
+    },
+    "accelerated/clock.py": {
+      "bytes": 15248,
+      "sha256": "f8dab82e6b8f35f2d1f796c52faaf405baccbb0011b1c67f44499bd89d3759c0"
+    },
+    "accelerated/compact_core.py": {
+      "bytes": 16680,
+      "sha256": "b8a0037f6a31b499a328626fef014432ad44c567711b475f164ecf34d674d738"
+    },
+    "accelerated/compaction.py": {
+      "bytes": 5624,
+      "sha256": "c8411a9a1f7c25882ab184c887bfefb8566c2238a7e9e96832b417bbce7f9401"
+    },
+    "accelerated/complete_console.py": {
+      "bytes": 3776,
+      "sha256": "1a096adb01de8dc6a9d5ff9d99fb17d03a08b21fe84adf546b3986be6a323dad"
+    },
+    "accelerated/cpu.py": {
+      "bytes": 16517,
+      "sha256": "94d0b03f1182f3f3b1e0818c76069b5a314e8c8cdcf77f89af7572f3e2eeee3e"
+    },
+    "accelerated/cpu_build.py": {
+      "bytes": 1450,
+      "sha256": "cffd95161a311f1924b28cd9a06dbcd5121ed674c49ae48f4b0d367ddc6dfbd3"
+    },
+    "accelerated/cpu_components.py": {
+      "bytes": 38619,
+      "sha256": "13c8993483812e09d90602fb909b759b3f4c1954712f59a66c25aee212e0ffa1"
+    },
+    "accelerated/exact_constants.py": {
+      "bytes": 6213,
+      "sha256": "c0042090edd078d4c4f2036f8a5663098ee18ab19124b2b8116f1c3fd18a6ba4"
+    },
+    "accelerated/exact_sharing.py": {
+      "bytes": 3551,
+      "sha256": "865e9116480488f94b8f58addef365b58c38701f69b8e8fc85816290a7f11949"
+    },
+    "accelerated/export_cpu.py": {
+      "bytes": 3067,
+      "sha256": "738934118905f9d319044f234a04eef5c5c6aea8765153597d3084b72bea1441"
+    },
+    "accelerated/export_system.py": {
+      "bytes": 3201,
+      "sha256": "2786783eb552bcbb146cb46f133a22943458e9678c20f70737b8b5f6b1cc8489"
+    },
+    "accelerated/fast_console.py": {
+      "bytes": 5024,
+      "sha256": "92e1f02c3b15188e198f58f37aa94e06df9603f9b1e758649ace4c7c6e3e2cd5"
+    },
+    "accelerated/font5x7.py": {
+      "bytes": 2970,
+      "sha256": "fa69dd53d9c61ef66c2ddb8542756c173955141440f0bcc298655e12a3e23d98"
+    },
+    "accelerated/font_rom.py": {
+      "bytes": 1962,
+      "sha256": "4ae10101c5bc05d2ceef5a50a2f64b3ce36b637bdcd3fe3a8c49fe1b4581caf3"
+    },
+    "accelerated/hdl.py": {
+      "bytes": 49573,
+      "sha256": "92853be7ad1e5b7595fd5eed5ac2db9b1ca8322a78444d85a20fab11656a3ad1"
+    },
+    "accelerated/io.py": {
+      "bytes": 225,
+      "sha256": "96465d98ff6e2a46b95f43ab3b84683ac2cdeeee4b30a85cbb13bda2f590401b"
+    },
+    "accelerated/isa.py": {
+      "bytes": 8046,
+      "sha256": "f66e316d8743ac89cebd32dd94d98418fc0081bc37546a62c3f1665f4154e052"
+    },
+    "accelerated/layout.py": {
+      "bytes": 12492,
+      "sha256": "e1d2c324eec39e5fff6fdd8c541727d9a1ba678a5126ce1f13a3c026b608a589"
+    },
+    "accelerated/local_word_ram.py": {
+      "bytes": 597,
+      "sha256": "b6f66d16ce36faa4a567c7b0f0ff98ebe09ccfe17ce5c1d5b0a47c2e3527a213"
+    },
+    "accelerated/optimise.py": {
+      "bytes": 175,
+      "sha256": "b51c7c4fa4fa05242b3dc9a0c6a57d920c2bfb2ffcee1b428978030dfdc3e68b"
+    },
+    "accelerated/packet.py": {
+      "bytes": 9002,
+      "sha256": "98c0e1b4d6cd9514f24c874a695a6b5bcf0ecf4e51a3786c9406a0f50070fde3"
+    },
+    "accelerated/packing.py": {
+      "bytes": 5438,
+      "sha256": "6d756548624c4b97640836bcac635ac9f95346e84ce8f0fb08e331480efb3a0d"
+    },
+    "accelerated/pair_branch.py": {
+      "bytes": 6926,
+      "sha256": "d95bad6ec4b01af42043faa1fc4c19493bd28b96ed78222253301361c753185e"
+    },
+    "accelerated/pixel_terminal.py": {
+      "bytes": 12467,
+      "sha256": "ea7c010402feeb41a50639ff7f8df899febb347ddaaf4861c4b22ccbb43ea59b"
+    },
+    "accelerated/pulse_storage.py": {
+      "bytes": 1641,
+      "sha256": "ed3cc2947434798467d1ef04acb9465bf40f96a10d008271b36de691f797d216"
+    },
+    "accelerated/register_alias.py": {
+      "bytes": 5663,
+      "sha256": "1d1f14cd00dede7feca34671b10db59340c4a37b9f716bcbc5d2b96899fddc25"
+    },
+    "accelerated/rom_ranges.py": {
+      "bytes": 5465,
+      "sha256": "65333a415349745b10dfd94f768928f54ad2c8acab480d77f4e8be413193f14d"
+    },
+    "accelerated/rom_specialize.py": {
+      "bytes": 3789,
+      "sha256": "ffcd4fa4a072dd17e59dca1a1737c733b6bc6e633a0153a4cfd4ec87bd81131d"
+    },
+    "accelerated/short_console.py": {
+      "bytes": 882,
+      "sha256": "3a8add7157ca92227552b8158e965b15a562a3702bf8824560bfa94ca94ed9ee"
+    },
+    "accelerated/signs.py": {
+      "bytes": 3523,
+      "sha256": "7efff16fd9cd5f3c87c44858bc91bb7cae0e375f948f955b0940a0ed5843d9e6"
+    },
+    "accelerated/split.py": {
+      "bytes": 6651,
+      "sha256": "e98760cc7b473815434c9b5fae4719006dd3dee3754b2657fe961cd7afc8a5b8"
+    },
+    "accelerated/supports.py": {
+      "bytes": 6880,
+      "sha256": "e90b1f28d845374c07bb4e480d4cad8a6cd4b700c4db1ff9b56aa4e39c9cdf55"
+    },
+    "accelerated/system.py": {
+      "bytes": 364,
+      "sha256": "270c616aab6ea2d7177cd364e07881c1035ea62ba19b26845a7582ae130bb257"
+    },
+    "accelerated/tap_terminal.py": {
+      "bytes": 5664,
+      "sha256": "5cbc4fad784261d76ad4bb4e18d77331fb11ce9ad2873f0940df444f5ada42f6"
+    },
+    "accelerated/terminal.py": {
+      "bytes": 14542,
+      "sha256": "4104f6e0f847e4cee5d5aec867f2ae78e65e4e5eeb1bde2bcbfc32adf02a925a"
+    },
+    "accelerated/terminal_layout.py": {
+      "bytes": 13742,
+      "sha256": "10a4d9d06206e6a278edc3de0706471a0962f8382ed06403c759355adb35af0d"
+    },
+    "accelerated/timing.py": {
+      "bytes": 1714,
+      "sha256": "d95fa54fbf2064fdb2f2c9d60d3466f9700c349ecd338d38c4edb027c867a8ac"
+    },
+    "accelerated/tune_terminal_clock.py": {
+      "bytes": 821,
+      "sha256": "28fd10ec8d50f4e1297725b70432a7414cbe59de908547c97df843c2208828e5"
+    },
+    "accelerated/wide_terminal.py": {
+      "bytes": 4642,
+      "sha256": "80358199cb105902a7e7671c384b3051767474086b323624caee5ff49437a18f"
+    },
+    "ASSEMBLY.md": {
+      "bytes": 2139,
+      "sha256": "776affa99c43c7c583c85a663836c926c07315cdedc5e44917b1544fe1f892c8"
+    },
+    "build.py": {
+      "bytes": 750,
+      "sha256": "04f8fabb15d6df1e5cd3d71b9feaa3e8e0d5e68ae753e8050b906ab30314401a"
+    },
+    "firmware/basic.s": {
+      "bytes": 11948,
+      "sha256": "0e8c2e34187ad5968a8ea9ce649fdc507b8952abb7aaf06310db010a0cd00390"
+    },
+    "README.md": {
+      "bytes": 3440,
+      "sha256": "8daba4f6853647b5f0120ee866de48aa005766b958d3f2f8486c03e2b177c5ff"
+    },
+    "release.json": {
+      "bytes": 1771,
+      "sha256": "40147642b56407f6ae652bd302b25175b2b163c5f2a0c06883f3893b210f0d51"
+    },
+    "requirements.txt": {
+      "bytes": 12,
+      "sha256": "7fe29d8f40c3a60ff7c74aa8a331ef3f4fe80a6a08b6c585bda9dc6bbc75a5c7"
+    },
+    "vendor/lz4/__init__.py": {
+      "bytes": 646,
+      "sha256": "7bff23f8ae13271dfca9c3cd8e864ffe9343a3c2291380f6656978a79d2257ff"
+    },
+    "vendor/lz4/_version.cp313-win_amd64.pyd": {
+      "bytes": 11264,
+      "sha256": "bf2f62b28bd024919a5ef4f0ba520748a92a994bd6ce5d27d3f6a07b1f5aa802"
+    },
+    "vendor/lz4/block/__init__.py": {
+      "bytes": 71,
+      "sha256": "0d251b4bbccc94a29e2ecf093bdae23813b943f955a1207e9f08237e105e5edd"
+    },
+    "vendor/lz4/block/_block.cp313-win_amd64.pyd": {
+      "bytes": 76288,
+      "sha256": "8ebca5dfec123a5cb6fc84f5ef907b8b8fde95e8e9c73d40bb3eef367acb0945"
+    },
+    "vendor/lz4/version.py": {
+      "bytes": 746,
+      "sha256": "3791d96d63d972292cad57759b3c6efd91a7eb0b37799fbbfaccc1d5bdfd51d7"
+    },
+    "vendor/lz4-4.4.5.dist-info/licenses/LICENSE": {
+      "bytes": 1523,
+      "sha256": "a7d65d1dd4dcc86dca5d17d46aa4a1c77669c9b72f55f298e9e2212f2905c0cf"
+    },
+    "vendor/lz4-4.4.5.dist-info/METADATA": {
+      "bytes": 3946,
+      "sha256": "0c6d6d875da6b6c5141180b7ebfafab6e0ef76bef53a006b7530260f4414f579"
+    },
+    "VERIFICATION.json": {
+      "bytes": 1111,
+      "sha256": "ffd664c6e9a853b28a5237bb55bfb6ae34e81d7adf4e083ddff34e633c92d934"
+    }
+  }
+}

@@ -1,0 +1,211 @@
+from collections import Counter
+from copy import deepcopy
+from pathlib import Path
+import hashlib
+import shutil
+import uuid
+from accelerated.circuit import BASE_UUID, GATE_UUID
+from accelerated.supports import occupied_cells, components, sparse_supports, TIMER_UUID
+from accelerated.signs import make_sign, sign_record
+from accelerated.io import read, save
+from accelerated.packet import Encoder
+import lz4.block
+
+def build(root):
+    touching = True
+    title = 'FAST BASIC'
+    name_prefix = 'accelerated '
+    bridge_range = (46, 46)
+    r = read(root / 'prototype.json')
+    src = Path(r['folder'])
+    bp = read(src / 'blueprint.json')
+    boundary = read(root / 'boundary.json')
+    owner = {int(i): v for i, v in boundary['owners'].items()}
+    parts = {p['controller']['id']: deepcopy(p) for b in bp['bodies'] for p in b['childs'] if 'controller' in p and 'data' not in p['controller']}
+    original_edges = {(i, e['id']) for i, p in parts.items() for e in p['controller'].get('controllers') or []}
+    links = boundary['links']
+    outgoing = [l for l in links if l['direction'] == 'cpu -> terminal']
+    incoming = [l for l in links if l['direction'] == 'terminal -> cpu']
+
+    def key(l):
+        name = l['name']
+        order = ['bus_write_data', 'bus_address', 'bus_kind', 'bus_write(', 'bus_request', 'input_index', 'faulted', 'RUN', 'RESET', 'Terminal keyboard_data', 'Terminal keyboard_length', 'Service bus_read_data', 'Service bus_ack', 'Service gpio']
+        rank = next((n for n, prefix in enumerate(order) if name.startswith(prefix)), 99)
+        import re
+        bit = re.search('\\((\\d+)\\)', name)
+        return (rank, int(bit[1]) if bit else 0)
+    outgoing.sort(key=key)
+    incoming.sort(key=key)
+    links = outgoing + incoming
+    assert len(outgoing) == 22 and len(incoming) == 23 or (True and (46, 46)[0] <= len(links) <= (46, 46)[1])
+    link_count = len(links)
+    assert len({l['source'] for l in links}) == link_count
+    assert not {l['source'] for l in links} & {l['receiver'] for l in links}
+    term = read(src / 'terminal-map.json')
+    pixel_ids = {p['controllerId'] for p in term['pixels']}
+    key_ids = {p['controllerId'] for p in term['keys']}
+    assert not pixel_ids & {l['source'] for l in links}
+    monitors = {term['busy'], term['key_ready']}
+    clock = read(src / 'clock-map.json')
+    svc = read(src / 'service-clock-map.json')
+    timer_ids = {t['controllerId'] for c in (clock, svc) for t in c['timers']}
+    exposed = pixel_ids | key_ids | monitors | timer_ids | {l[k] for l in links for k in ('source', 'receiver')}
+    for domain, origin in [('terminal', (-15, 3, 1)), ('cpu', (-15, 40, 1))]:
+        ids = sorted((i for i in parts if owner[i] == domain and i not in exposed))
+        side = 1
+        while side ** 3 < len(ids):
+            side += 1
+        for n, i in enumerate(ids):
+            layer, slot = divmod(n, side * side)
+            y, x = divmod(slot, side)
+            parts[i].update(pos=dict(x=origin[0] + x, y=origin[1] + y, z=origin[2] + layer), xaxis=1, zaxis=3)
+    for domain, c, y in [('cpu', clock, 72), ('terminal', svc, 7)]:
+        for n, timer in enumerate(c['timers']):
+            parts[timer['controllerId']].update(pos=dict(x=15 + 6 * n if domain == 'terminal' else -12 + 6 * n, y=y, z=1), xaxis=1, zaxis=3)
+    for index, l in enumerate(links, 1):
+        row = 0 if l['direction'] == 'cpu -> terminal' else 1
+        col = index - 1
+        x = -15 + col * 1
+        cpu_y = 31
+        terminal_y = 30
+        for role in ('source', 'receiver'):
+            i = l[role]
+            y = cpu_y if owner[i] == 'cpu' else terminal_y
+            color = '44AF55' if role == 'source' else 'DFE0E1'
+            if True and l['name'] == 'RUN' and (role == 'source'):
+                color = '4C6FE3'
+            if True and l['name'] == 'RESET' and (role == 'source'):
+                color = 'D96852'
+            parts[i].update(pos=dict(x=x, y=y, z=1), xaxis=1, zaxis=-2, color=color)
+        l.update(number=index, row=0, column=col, source_position=parts[l['source']]['pos'], receiver_position=parts[l['receiver']]['pos'])
+    actual = {}
+    for i, p in parts.items():
+        for cell in occupied_cells(p):
+            actual[cell] = i
+    across = set()
+    for cell, i in actual.items():
+        x, y, z = cell
+        for other in ((x + 1, y, z), (x, y + 1, z), (x, y, z + 1)):
+            j = actual.get(other)
+            if j is not None and owner[i] != owner[j]:
+                across.add(frozenset((i, j)))
+    assert across == {frozenset((l['source'], l['receiver'])) for l in links}
+    for l in links:
+        a = list(occupied_cells(parts[l['source']]))
+        b = list(occupied_cells(parts[l['receiver']]))
+        assert len(a) == len(b) == 1 and sum((abs(x - y) for x, y in zip(a[0], b[0]))) == 1
+    old_signs = {p['controller']['id']: p for b in bp['bodies'] for p in b['childs'] if 'controller' in p and 'data' in p['controller']}
+    keep_signs = [deepcopy(old_signs[s['controllerId']]) for s in read(src / 'sign-map.json')['signs'] if s['port'] == 'keyboard']
+    next_sign = max([*parts, *old_signs]) + 1
+    module_records = {}
+    all_modules = []
+    all_signs = []
+    for domain in ('cpu', 'terminal'):
+        children = [deepcopy(parts[i]) for i in sorted(parts) if owner[i] == domain]
+        signs = []
+        for p in children:
+            p['controller']['controllers'] = [e for e in p['controller'].get('controllers') or [] if owner[e['id']] == domain] or None
+        if domain == 'terminal':
+            children += deepcopy(keep_signs)
+
+        def block(x, y, z, w=1, d=1, h=1, color='34465E'):
+            color = '34465E'
+            children.append(dict(shapeId=BASE_UUID, color=color, pos=dict(x=x, y=y, z=z), bounds=dict(x=w, y=d, z=h), xaxis=1, zaxis=3))
+
+        def label(text, x, y, z=1, upright=False):
+            nonlocal next_sign
+            p = make_sign(text, next_sign, dict(x=x, y=y, z=z), 'in')
+            next_sign += 1
+            p['color'] = 'EEEEEE'
+            if upright:
+                p['zaxis'] = -2
+            children.append(p)
+            signs.append(sign_record(p, text, 'module', 'in'))
+        label('CORE' if domain == 'cpu' else 'CONSOLE', -15 + link_count + 2, 30 if domain == 'cpu' else 28)
+        if domain == 'cpu':
+            label('RUN RESET', 3, 32)
+        if domain == 'terminal':
+            block(-17, 0, 2, 74)
+            block(-17, 0, 35, 74)
+            block(-17, 0, 3, 1, 1, 32)
+            block(56, 0, 3, 1, 1, 32)
+            block(-17, 0, 1)
+            block(56, 0, 1)
+            label('FAST BASIC', 16, 1, 36, upright=True)
+            for n, t in enumerate(svc['timers']):
+                label('IO ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 10)
+        else:
+            label('CORE MODULE', 0, 70)
+            for n, t in enumerate(clock['timers']):
+                label('CPU ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 75)
+        pad_y = 30 if domain == 'cpu' else 29
+        block(-20, pad_y, 0, 3, 1, 1, color='F5D742')
+        block(-20, pad_y, 1, color='F5D742')
+        block(-20, pad_y, 2, color='D96852')
+        label('WELD', -25, 33 if domain == 'cpu' else 26)
+        module = dict(bp, bodies=[dict(childs=children)])
+        support = sparse_supports(module)
+        occupied = Counter((c for p in module['bodies'][0]['childs'] for c in occupied_cells(p)))
+        assert max(occupied.values()) == 1, [(c, n) for c, n in occupied.items() if n > 1][:5]
+        assert len(components(occupied)) == 1
+        assert min((c[1] for c in occupied)) >= 30 if domain == 'cpu' else max((c[1] for c in occupied)) <= 29
+        ids = {p['controller']['id'] for p in children if 'controller' in p}
+        assert all((e['id'] in ids for p in children for e in p.get('controller', {}).get('controllers') or []))
+        folder = root / 'modules' / str(uuid.uuid4())
+        folder.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src / 'icon.png', folder / 'icon.png')
+        description = read(src / 'description.json')
+        description.update(localId=folder.name, name='RV32E - ' + 'accelerated ' + ('CORE 1 of 2' if domain == 'cpu' else 'CONSOLE 2 of 2'), description=f'Mate the plain L-shaped pads labelled WELD. The {link_count}-block connector rows touch after welding. Connect each coloured block to the grey block directly touching it across the seam. Blue switch RUN; red switch RESET. RUN OFF; RESET ON 6 seconds, OFF; RUN ON. Tap H then ENTER. No passive test bank. Native functional check pending.')
+        save(folder / 'description.json', description)
+        o = r['orders']
+        data = Encoder(module).encode(o['child_order'], o['controller_order'], o['pos_order'])
+        (folder / 'blueprint.json').write_bytes(data)
+        packet = len(lz4.block.compress(data, store_size=False)) + 13
+        assert packet < 524288
+        stats = dict(parts=len(children), logic_blocks=sum((p['shapeId'] == GATE_UUID for p in children)), timers=sum((p['shapeId'] == TIMER_UUID for p in children)), wires=sum((len(p.get('controller', {}).get('controllers') or []) for p in children)))
+        row = dict(folder=str(folder.resolve()), blueprint_name=description['name'], blueprint_sha256=hashlib.sha256(data).hexdigest(), packet_bytes=packet, headroom_bytes=524288 - packet, stats=stats, support=support, domain=domain)
+        save(folder / 'link-map.json', dict(links=links, module=domain))
+        save(folder / 'module-report.json', row)
+        module_records[domain] = row
+        all_modules += deepcopy(module['bodies'][0]['childs'])
+        all_signs += signs
+        print('MODULE', domain, packet, stats, flush=True)
+    joined = dict(bp, bodies=[dict(childs=all_modules)])
+    byid = {p['controller']['id']: p for p in all_modules if 'controller' in p}
+    for l in links:
+        c = byid[l['source']]['controller']
+        c['controllers'] = (c.get('controllers') or []) + [dict(id=l['receiver'])]
+    joined_edges = {(i, e['id']) for i, p in byid.items() for e in p['controller'].get('controllers') or []}
+    assert joined_edges == original_edges
+    for i, p in parts.items():
+        assert byid[i]['shapeId'] == p['shapeId'] and byid[i]['controller']['active'] == p['controller']['active'] and (byid[i]['controller'].get('mode') == p['controller'].get('mode'))
+    cells = Counter((c for p in all_modules for c in occupied_cells(p)))
+    assert max(cells.values()) == 1 and len(components(cells)) == 1
+    folder = root / 'joined' / str(uuid.uuid4())
+    folder.parent.mkdir(exist_ok=True)
+    shutil.copytree(src, folder)
+    o = r['orders']
+    data = Encoder(joined).encode(o['child_order'], o['controller_order'], o['pos_order'])
+    (folder / 'blueprint.json').write_bytes(data)
+    cm = read(folder / 'circuit-map.json')
+    for n in cm['nodes']:
+        n['position'] = parts[n['controllerId']]['pos']
+    save(folder / 'circuit-map.json', cm)
+    for name in ('port-map.json', 'clock-map.json', 'service-clock-map.json', 'terminal-map.json'):
+        d = read(folder / name)
+
+        def update(v):
+            if isinstance(v, list):
+                return [update(x) for x in v]
+            if not isinstance(v, dict):
+                return v
+            v = {k: update(x) for k, x in v.items()}
+            if 'controllerId' in v and v['controllerId'] in parts and ('position' in v):
+                v['position'] = parts[v['controllerId']]['pos']
+            return v
+        save(folder / name, update(d))
+    row = dict(r, folder=str(folder.resolve()), blueprint_sha256=hashlib.sha256(data).hexdigest(), benchmark_root=str((root / 'joined-validation').resolve()), native_validation='Private assembly simulation; separately import modules', joined_packet_estimate=len(lz4.block.compress(data, store_size=False)) + 13)
+    save(root / 'joined.json', row)
+    save(root / 'modules.json', dict(modules=module_records, links=links, joined=row, total_headroom=sum((m['headroom_bytes'] for m in module_records.values())), electrical_graph_identical_to_prototype=True, touching_rows=True, each_bridge_is_unique_touching_pair=True, structural_paint_cues=False))
+    print('JOINED', row['joined_packet_estimate'], link_count, 'bridges; collision-free supported assembly', flush=True)
+    return row
