@@ -8,6 +8,10 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
+# Build outputs (build.py)
+out-blueprints/
+.build/
+
 # Rust (circuit_viewer)
 target/
 

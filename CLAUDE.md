@@ -1,0 +1,36 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Two independent parts live here: a Python toolchain that builds a Scrap Mechanic RV32E computer (CPU + console blueprints), and a Rust desktop viewer for circuit/blueprint files in `circuit_viewer/`.
+
+## Python blueprint toolchain
+
+Requires **Python 3.13 x64 on Windows**; the LZ4 extension is bundled in `vendor/` (tracked on purpose, `build.py` puts it on `sys.path`). There are no tests or linters.
+
+```powershell
+python -I build.py --output out-blueprints   # several minutes; --work PATH changes the .build dir
+```
+
+`-I` is intentional: the entry point adds only the repo and `vendor/` to the import path. Outputs (`out-blueprints/`, `.build/<UUID>/` with `verification.json`) are gitignored.
+
+### Architecture
+
+`build.py` calls `accelerated.build.build_current`, a single linear pipeline (read it top to bottom): assemble `firmware/basic.s` (`isa.py`) → generate CPU (`cpu.py`, `cpu_components.py`) and console (`tap_terminal.py`, `complete_console.py`) HDL → `compile_system` → compact/optimise/renumber gates → export → retime clocks → encode packet (`packet.py`) → split into CORE/CONSOLE modules and lay out the 46-link seam connector (`split.py`, `layout.py`) → copy to fresh UUID folders.
+
+The build **enforces a pinned release**: `release.json` holds the firmware hash, clock settings, packet orders, and expected blueprint SHA256s/sizes. The build aborts before export if any hash differs. So any change to firmware or hardware source will fail the build until `release.json` hashes are deliberately updated after qualifying the new design. Don't update hashes just to make the build pass. `ZIP-MANIFEST.json` and `VERIFICATION.json` are packaging records of the pinned release. Blueprint bytes are reproducible, but folder UUIDs/`localId` vary per export.
+
+`ASSEMBLY.md` is copied into each exported blueprint folder (in-game weld/wire instructions).
+
+## Rust viewer (`circuit_viewer/circuit_viewer/`)
+
+Read-only egui/eframe viewer for `scrap-circuit` v1 project files and version-4 `blueprint.json` exports. Needs Rust 1.85+ (edition 2024) and MSVC build tools. Run from that directory (paths in the README use `circuit_viewer/Cargo.toml` from a parent layout that is not in this repo):
+
+```powershell
+cargo build --release --locked
+cargo test --locked
+cargo test --locked --test compatibility full_name   # single integration test
+cargo run --release --locked -- path/to/file.circuit.json
+```
+
+Modules: `model.rs` (parsing, `Circuit` simulation, blueprint/library scanning), `overview.rs` (cluster hierarchy for 15k+ block circuits), `physics.rs`/`layout.rs` (background force layout, planar and 3D), `camera.rs` (3D projection), `viewer.rs` + `viewer/overview_ui.rs` (egui UI). The viewer starts with an empty circuit (no embedded example). Integration tests build their fixtures in code; there are no sample project files in the repo.
