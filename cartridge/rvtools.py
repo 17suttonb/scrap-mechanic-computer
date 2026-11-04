@@ -68,40 +68,74 @@ def disasm(w, pc=0):
     return f'.word {w:#010x}'
 
 
+COLUMNS, ROWS, STRIDE, RAM_ROWS = 12, 7, 16, 4
+STEER = -234
+STEPS = {'W': -16, 'S': 16, 'A': -1, 'D': 1}
+
+
 class Machine:
-    """RV32E with the cartridge's view of the machine, in the state the firmware leaves on entry:
-    board cleared, wall bytes in columns 12 and 15, '0' in columns 13 and 14, arguments in a0..a5.  `keys` are single keys delivered one at a time."""
+    """RV32E with the cartridge's view of the machine, in the state the firmware leaves on entry: the
+    64-byte RAM and the board rows below it are clear, and no registers are set. `keys` are single keys,
+    delivered in order."""
 
     def __init__(self, image, base, keys=()):
         self.image, self.base = image, base
-        self.ram = bytearray(64)
-        for row in range(4):
-            self.ram[row * 16 + 12:row * 16 + 16] = bytes((3, 48, 48, 3))
+        self.ram = bytearray(64)            # statically addressed bytes, and board rows 0..3
+        self.extra = bytearray((ROWS - RAM_ROWS) * COLUMNS)
         self.x = [0] * 32
-        self.x[10:16] = [21, 20, 1, 38, 2, 4]          # the arguments the firmware passes
         self.pc = base
         self.keys = list(keys)
+        self.taken = 0
         self.retired = 0
         self.stop = False
 
+    def cell(self, address):
+        """Where a register-addressed access lands: ('ram', i), ('extra', i), or None for a wall."""
+        address &= 127
+        row, column = address // STRIDE, address % STRIDE
+        if row >= ROWS or column >= COLUMNS:
+            return None
+        return ('ram', address) if row < RAM_ROWS else ('extra', (row - RAM_ROWS) * COLUMNS + column)
+
+    def read_cell(self, address):
+        where = self.cell(address)
+        return 3 if where is None else self.ram[where[1]] if where[0] == 'ram' else self.extra[where[1]]
+
     def screen(self):
-        """What the console shows: RAM cells through the display map."""
+        """What the console shows: board cells through the display map."""
         glyph = lambda v: '.' if v == 0 else '+' if v == 2 else 'Q' if v == 4 else 'O'
-        return [''.join(glyph(self.ram[r * 16 + c]) for c in range(12)) for r in range(4)]
+        return [''.join(glyph(self.read_cell(r * STRIDE + c)) for c in range(COLUMNS)) for r in range(ROWS)]
 
     def score(self):
         """The two digits on the score line."""
-        return chr(self.ram[13]) + chr(self.ram[14])
+        return f'{self.ram[13]}{self.ram[14]}'
 
     def result(self):
-        """The result line."""
+        """The result, on the bottom row."""
         return {5: 'YOU LOST', 6: 'YOU WON'}.get(self.ram[29], '')
+
+    def steer(self, step, position):
+        """The steering row: take a waiting key, and return the step for one cell in the new direction."""
+        step, position = sx(step, 32), position & 127
+        horizontal = bool(step & 1)
+        negative = bool(step >> (1 if horizontal else 6) & 1)
+        if self.keys:
+            key = self.keys.pop(0)
+            self.taken += 1
+            if key in STEPS:
+                new = STEPS[key]
+                if not (bool(new & 1) == horizontal and (new < 0) != negative):
+                    horizontal, negative = bool(new & 1), new < 0
+        row, column = position // STRIDE, position % STRIDE
+        if horizontal:
+            new = (COLUMNS - 1 if column == 0 else -1) if negative else (1 - COLUMNS if column == COLUMNS - 1 else 1)
+        else:
+            new = ((ROWS - 1) * STRIDE if row == 0 else -STRIDE) if negative else ((1 - ROWS) * STRIDE if row == ROWS - 1 else STRIDE)
+        return new & M32
 
     def load(self, a, size, signed, static=False):
         a &= M32
-        if not static:
-            a &= 63
-        if a >= 0xFFFFFF00:
+        if static and a >= 0xFFFFFF00:
             off = a - 0x100000000
             if off == -240:
                 v = 0x80 if self.keys else 0
@@ -109,14 +143,24 @@ class Machine:
                 v = ord(self.keys.pop(0)) if self.keys else 0
             else:
                 raise AssertionError(f'load from unmapped MMIO {off}')
-        else:
+        elif static:
             assert a + size <= len(self.ram), f'RAM load out of range {a:#x} at pc {self.pc:#x}'
             v = int.from_bytes(self.ram[a:a + size], 'little')
+        else:
+            assert size == 1, f'wide board load at pc {self.pc:#x}'
+            v = self.read_cell(a)
         return sx(v, size * 8) & M32 if signed else v & ((1 << size * 8) - 1)
 
-    def store(self, a, size, v):
-        a &= 63
-        self.ram[a:a + size] = (v & ((1 << size * 8) - 1)).to_bytes(size, 'little')
+    def store(self, a, size, v, static=False):
+        a &= M32
+        if static:
+            assert a + size <= len(self.ram), f'RAM store out of range {a:#x} at pc {self.pc:#x}'
+            self.ram[a:a + size] = (v & ((1 << size * 8) - 1)).to_bytes(size, 'little')
+            return
+        assert size == 1, f'wide board store at pc {self.pc:#x}'
+        where = self.cell(a)
+        if where:
+            (self.ram if where[0] == 'ram' else self.extra)[where[1]] = v & 255
 
     def step(self):
         i = (self.pc - self.base) // 4
@@ -134,9 +178,15 @@ class Machine:
             res = {0: lambda: (a - bb if sub else a + bb), 1: lambda: a << sh, 2: lambda: int(sx(a, 32) < sx(bb, 32)), 3: lambda: int(a < bb),
                    4: lambda: a ^ bb, 5: lambda: (sx(a, 32) >> sh) if d['f7'] == 32 else a >> sh, 6: lambda: a | bb, 7: lambda: a & bb}[f3]()
         elif op == 3:
-            res = self.load(a + d['i'], [1, 2, 4, 0, 1, 2][f3], f3 < 3, d['ra'] == 0)
+            if d['ra'] == 0 and d['i'] == STEER:
+                # the marker in front of the steering load names the position register
+                marker = decode(int.from_bytes(self.image[i * 4 - 4:i * 4], 'little'))
+                assert marker['op'] == 51 and marker['rd'] == 0, f'steering load without its marker at {self.pc:#x}'
+                res = self.steer(x[d['rd']], x[marker['ra']])
+            else:
+                res = self.load(a + d['i'], [1, 2, 4, 0, 1, 2][f3], f3 < 3, d['ra'] == 0)
         elif op == 35:
-            self.store(a + d['s'], 1 << f3, b)
+            self.store(a + d['s'], 1 << f3, b, d['ra'] == 0)
         elif op == 99:
             t = {0: a == b, 1: a != b, 4: sx(a, 32) < sx(b, 32), 5: sx(a, 32) >= sx(b, 32), 6: a < b, 7: a >= b}[f3]
             if t:

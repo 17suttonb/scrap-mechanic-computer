@@ -43,6 +43,13 @@ def attach(build, queue_depth=0):
         for p in parents:
             c.connect(p, i)
         return i
+    if 'key_toggle' in ports:
+        # A cartridge takes a key by toggling this line: pop the queue directly, without the console's clock.
+        toggle = ports.pop('key_toggle')['node_ids'][0]
+        delayed = toggle
+        for i in range(3):
+            delayed = gate('OR', [delayed], f'cartridge take delay {i}')
+        taken = gate('OR', [taken, gate('XOR', [toggle, delayed], 'cartridge take')], 'console or cartridge take')
     clearing = gate('OR', [], 'clear hold')
     raw = gate('OR', keys, 'any physical key')
     raw_history = [raw]
@@ -93,6 +100,13 @@ def attach(build, queue_depth=0):
         delayed = ports['screen_write']['node_ids'][0]
         for i in range(6):
             delayed = gate('OR', [delayed], f'screen write delay {i}')
+        replacement[late] = delayed
+        removed.add(late)
+        # The key echo's data settles the same way, off the settled key rather than a CPU store.
+        late = ports.pop('key_echo_late')['node_ids'][0]
+        delayed = settled
+        for i in range(6):
+            delayed = gate('OR', [delayed], f'key echo delay {i}')
         replacement[late] = delayed
         removed.add(late)
     c.edges = {(replacement.get(a, a), b) for a, b in old_edges} | c.edges - old_edges
