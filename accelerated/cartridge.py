@@ -9,7 +9,8 @@ ROM would have produced.  Execution switches to it by jumping into the cartridge
                        cart_imm (12)                sign-extended by the CPU
                        cart_target (10)             branch / jal target, bits 11..2
                        cart_f3 (3), cart_aluop (3)
-                       cart_legal, load, store, branch, jal, jalr, immediate, compare, static (8)
+                       cart_legal, load, store, branch, jal, jalr, immediate, compare, static (9)
+                       cart_key, cart_nokey (2)     take the target if a key is / is not waiting
 
 Everything else the baked decoder knows is zero for those rows, so a cartridge cannot use LUI/AUIPC,
 shifts, ECALL or EBREAK.  The register-width and value-range analyses still run over the
@@ -18,7 +19,6 @@ must be the one the CPU was built with.  With no cartridge attached the fields r
 first fetch there is an illegal instruction and the CPU traps.
 """
 from contextlib import contextmanager
-from unittest.mock import patch
 import re
 from accelerated import compact_core
 from accelerated.hdl import compile_source
@@ -28,7 +28,7 @@ WORDS = 512                     # cartridge window: 512 words, PC bits 11..2 wit
 ADDRESS_BITS = 10
 
 # field name -> width, in the order the interface is documented and laid out
-FIELDS = dict(sa=15, sb=15, sw=15, imm=12, target=10, f3=3, aluop=3, legal=1, load=1, store=1, branch=1, jal=1, jalr=1, immediate=1, compare=1, static=1)
+FIELDS = dict(sa=15, sb=15, sw=15, imm=12, target=10, f3=3, aluop=3, legal=1, load=1, store=1, branch=1, jal=1, jalr=1, immediate=1, compare=1, static=1, key=1, nokey=1)
 
 
 def combined_image(firmware, cartridge):
@@ -44,10 +44,32 @@ def onehot(register):
 
 
 def rows(cartridge):
-    """Per-word field values of the cartridge, checked against what the interface can carry."""
+    """Per-row field values of the cartridge, checked against what the interface can carry.
+
+    Two common pairs fold into one single-cycle row. Later rows move up and branch targets follow,
+    so the cartridge holds fewer rows than the image has words.
+
+    * `lb t,0(x); sb r,0(x)` is a swap: the CPU reads during capture and writes during commit.
+    * `lb t,-240(zero); blt/bge t,zero,target` loads the status and branches on the ready flag
+      directly, without waiting for the load to reach a register."""
     image = combined_image(b'', cartridge)
+    words = compact_core.analysis_metadata(image)[BASE // 4:BASE // 4 + len(cartridge) // 4]
+    targets = {r['target'] for r in words if r['branch'] or r['jal']}
+    merged, new_pc, skip = [], {}, False
+    for i, r in enumerate(words):
+        if skip:
+            skip = False
+            continue
+        new_pc[r['pc']] = BASE + 4 * len(merged)
+        following = words[i + 1] if i + 1 < len(words) else None
+        swap = (following and r['load'] and r['f3'] in (0, 4) and r['imm'] == 0 and not r['static_memory'] and following['store'] and following['f3'] == 0
+                and following['imm'] == 0 and following['ra'] == r['ra'] and following['pc'] not in targets and r['rd'] not in (r['ra'], following['rb']))
+        status = (following and r['load'] and r['f3'] == 0 and r['static_memory'] and r['imm'] == (-240 & 0xFFFFFFFF) and following['branch'] and following['f3'] in (4, 5)
+                  and following['ra'] == r['rd'] and following['rb'] == 0 and following['pc'] not in targets)
+        merged.append((r, following if swap else None, following if status else None))
+        skip = bool(swap or status)
     result = []
-    for r in compact_core.analysis_metadata(image)[BASE // 4:BASE // 4 + len(cartridge) // 4]:
+    for r, store, status in merged:
         w = r['word']
         where = f"cartridge word at {r['pc']:#x} ({w:#010x})"
         if not r['legal']:
@@ -63,10 +85,11 @@ def rows(cartridge):
                 raise ValueError(f'immediate does not fit 12 bits: {where}')
         else:
             low = 0
-        target = r['target'] if r['branch'] or r['jal'] else 0
-        if target and not BASE <= target < BASE + WORDS * 4:
+        target = status['target'] if status else r['target'] if r['branch'] or r['jal'] else 0
+        if target and (target & 3 or not BASE <= target < BASE + WORDS * 4):
             raise ValueError(f'branch target {target:#x} leaves the cartridge window: {where}')
-        result.append(dict(sa=onehot(r['ra']), sb=onehot(r['rb']), sw=onehot(r['rd']), imm=low, target=target >> 2 & 1023, f3=r['f3'], aluop=r['aluop'], legal=1, load=r['load'], store=r['store'], branch=r['branch'], jal=r['jal'], jalr=r['jalr'], immediate=r['immediate'], compare=r['compare'], static=int(bool((r['load'] or r['store']) and r['ra'] == 0))))
+        target = new_pc[target] if target else 0
+        result.append(dict(sa=onehot(r['ra']), sb=onehot(store['rb'] if store else r['rb']), sw=onehot(r['rd']), imm=low, target=target >> 2 & 1023, f3=r['f3'], aluop=r['aluop'], legal=1, load=r['load'], store=1 if store else r['store'], branch=r['branch'], jal=r['jal'], jalr=r['jalr'], immediate=r['immediate'], compare=r['compare'], static=int(bool((r['load'] or r['store']) and r['ra'] == 0)), key=int(bool(status and status['f3'] == 4)), nokey=int(bool(status and status['f3'] == 5))))
     return result
 
 
@@ -77,14 +100,13 @@ def source(cartridge):
     lines = [f'entity rv_cartridge is\n  port(cart_address:in bit_vector({ADDRESS_BITS - 1} downto 0); {ports});\nend;',
              'architecture gates of rv_cartridge is',
              f'  signal select_row:bit_vector({len(data) - 1} downto 0);',
-             f'  signal word_hi:bit_vector({(len(data) - 1) // 32} downto 0);signal word_lo:bit_vector(31 downto 0);',
+             f'  signal address_low:bit_vector({ADDRESS_BITS - 1} downto 0);',
              'begin']
-    for i in range(32):
-        lines.append(f'  word_lo({i}) <= cart_address(4 downto 0) = bits({i},5);')
-    for i in range((len(data) - 1) // 32 + 1):
-        lines.append(f'  word_hi({i}) <= cart_address(9 downto 5) = bits({16 + i},5);')
+    # one flat decoder per row: the decode path is part of every instruction's timing
     for i in range(len(data)):
-        lines.append(f'  select_row({i}) <= word_hi({i // 32}) and word_lo({i % 32});')
+        literals = [f'cart_address({bit})' if (512 + i) >> bit & 1 else f'address_low({bit})' for bit in range(ADDRESS_BITS)]
+        lines.append(f"  select_row({i}) <= and_reduce({' & '.join(literals)});")
+    lines.append('  address_low <= not cart_address;')
     for name, width in FIELDS.items():
         for bit in range(width):
             terms = [f'select_row({i})' for i, row in enumerate(data) if row[name] >> bit & 1]
@@ -109,7 +131,7 @@ def build(cartridge):
 
 # ---- CPU side ---------------------------------------------------------------------------------
 
-CPU_PORTS = 'cart_sa,cart_sb,cart_sw:in bit_vector(14 downto 0);cart_imm:in bit_vector(11 downto 0);cart_target:in bit_vector(9 downto 0);cart_f3,cart_aluop:in bit_vector(2 downto 0);cart_legal,cart_load,cart_store,cart_branch,cart_jal,cart_jalr,cart_immediate,cart_compare,cart_static:in bit;cart_address:out bit_vector(9 downto 0);'
+CPU_PORTS = 'cart_sa,cart_sb,cart_sw:in bit_vector(14 downto 0);cart_imm:in bit_vector(11 downto 0);cart_target:in bit_vector(9 downto 0);cart_f3,cart_aluop:in bit_vector(2 downto 0);cart_legal,cart_load,cart_store,cart_branch,cart_jal,cart_jalr,cart_immediate,cart_compare,cart_static,cart_key,cart_nokey:in bit;cart_address:out bit_vector(9 downto 0);cart_screen_write,cart_mode_out:out bit;'
 
 
 def wrapped(expression):
@@ -163,19 +185,58 @@ def cpu_source(text):
     old = '  region_ram <= address(31 downto 6) = bits(64,26);'
     assert text.count(old) == 1
     # the cartridge addresses the 64-byte RAM at 0..63, the firmware at 4096..4159
-    text = text.replace(old, '  region_ram <= (address(31 downto 6) = bits(64,26)) or (address(31 downto 6) = bits(0,26));')
-    return text.rsplit('end;', 1)[0] + f'  cart_address <= pc_q({ADDRESS_BITS + 1} downto 2);\nend;\n'
+    # register-addressed cartridge accesses always reach the RAM, through the low six address bits
+    text = text.replace(old, '  region_board <= (cart_legal and not d_static_memory) or (address(31 downto 6) = bits(0,26));  region_ram <= (address(31 downto 6) = bits(64,26)) or region_board;')
+    for old, new in (('  byte_cases(0) <= region_program;', '  byte_cases(0) <= region_program and not cart_legal;'), ('  byte_cases(1) <= region_stream or (region_input and address(2));', '  byte_cases(1) <= (region_stream and not cart_legal) or (region_input and address(2));')):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    text = text.replace('  signal regs:registers_t;', '  signal region_board,screen_stage:bit;  signal regs:registers_t;', 1)
+    # a store to the board also writes the matching screen cell, during this instruction's commit
+    screen = '  screen_stage <= latch(execute_ok and d_store and region_board,cap_en,reset);\n  cart_screen_write <= screen_stage and com_en;\n  cart_mode_out <= latch(pc_q(11),cap_en,reset);\n'
+    return text.rsplit('end;', 1)[0] + f'  cart_address <= pc_q({ADDRESS_BITS + 1} downto 2);\n' + screen + 'end;\n'
 
 
-@contextmanager
-def cpu_text_hook():
-    """Apply cpu_source to the HDL the CPU generator is about to compile."""
-    original = compact_core.compile_source
+def console_source(text):
+    """Console side of cartridge mode, which is on while the PC is in the cartridge window:
 
-    def hooked(text, *args, **kwargs):
-        return original(cpu_source(text), *args, **kwargs)
-    with patch.object(compact_core, 'compile_source', hooked):
-        yield
+    * On entry the screen is filled with '.' in one console cycle and any waiting line is dropped.
+    * Keys are not echoed and do not move the cursor; one tap is delivered as a complete line,
+      readable at index 0, and reading it clears it, so no acknowledge transaction is needed.
+    * A CPU store to the board writes one screen cell directly (row = address / 16, column =
+      address & 15, columns 12..15 are not shown), with 0 shown as '.', 2 as '+', else 'O'.
+    """
+    def once(old, new):
+        nonlocal text
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+
+    once('port(capture,commit,reset,faulted,key_settled,key_available:in bit;', 'port(capture,commit,reset,faulted,key_settled,key_available,screen_write,screen_late,cart_mode:in bit;screen_address:in bit_vector(5 downto 0);screen_data:in bit_vector(7 downto 0);')
+    decl = '  signal raw_seen,raw_seen_stage,raw_enter,raw_clear,taken_seen,taken_stage,blank_stage,key_shown,mirror_zero,mirror_food:bit;\n  signal mirror_code:bit_vector(5 downto 0);signal mirror_select,mirror_write:bit_vector(47 downto 0);\n'
+    text = text.replace('begin\n', decl + 'begin\n', 1)
+    text = text.replace('key_print or cpu_print', 'key_shown or cpu_print')
+    once('  newline_event <= key_enter or (tx', '  newline_event <= (key_enter and not cart_mode) or (tx')
+    once('  key_back <= key_event and (code = bits(8,7)) and (length_q /= bits(0,5));', '  key_back <= key_event and (code = bits(8,7)) and (length_q /= bits(0,5)) and not cart_mode;')
+    once("  length_next <= bits(0,5) when ack else", "  length_next <= bits(0,5) when ack or raw_clear else")
+    once("  ready_next <= '0' when ack else ready or key_enter;", "  ready_next <= '0' when ack or raw_clear else ready or key_enter or (key_print and cart_mode);")
+    once('  input_char <= resize(line(to_integer(gpio(28 downto 24))),7) + bits(32,7) when (gpio(28 downto 24) < length_q) else bits(0,7);', '  input_char <= resize(line(0),7) + bits(32,7) when cart_mode and (length_q /= bits(0,5)) else resize(line(to_integer(gpio(28 downto 24))),7) + bits(32,7) when (gpio(28 downto 24) < length_q) else bits(0,7);')
+    text = text.replace(' and not ready and not faulted', ' and not ready and not faulted and not cart_mode')
+    extra = '  key_shown <= key_print and not cart_mode;\n'
+    extra += '  raw_seen_stage <= latch(cart_mode,cap_en,reset);raw_seen <= latch(raw_seen_stage,com_en,reset);\n  raw_enter <= cart_mode and not raw_seen;\n  blank_stage <= latch(raw_enter,cap_en,reset);\n'
+    extra += '  taken_stage <= latch(gpio(24),cap_en,reset);taken_seen <= latch(taken_stage,com_en,reset);\n  raw_clear <= raw_enter or (cart_mode and (gpio(24) xor taken_seen));\n'
+    extra += "  mirror_zero <= screen_data = bits(0,8);\n  mirror_food <= screen_data = bits(2,8);\n  mirror_code(0) <= not mirror_zero;mirror_code(1) <= '1';mirror_code(2) <= not mirror_food;mirror_code(3) <= '1';mirror_code(4) <= '0';mirror_code(5) <= not mirror_zero and not mirror_food;\n"
+    for i in range(48):
+        address = i // 12 * 16 + i % 12
+        extra += f'  mirror_select({i}) <= screen_write and (screen_address = bits({address},6));\n  mirror_write({i}) <= screen_late and (screen_address = bits({address},6));\n'
+        for bit in range(6):
+            pattern = re.compile(rf'^(  chars_data\({i}\)\({bit}\) <= (?:\(not )?or_reduce\()', re.M)
+            blank = ' & blank_stage' if bit in (1, 2, 3) else ''
+            text, n = pattern.subn(lambda m: f'{m[1]}(mirror_select({i}) and mirror_code({bit})){blank} & ', text)
+            assert n == 1, (i, bit)
+        pattern = re.compile(rf'^(  pixel_write\({i}\) <= [^;]*);', re.M)
+        text, n = pattern.subn(lambda m: f'{m[1]} or blank_stage;', text)
+        assert n == 1, i
+        once(f'  chars_q({i}) <= latch(chars_data({i}),com_en and pixel_write({i}),reset);', f'  chars_q({i}) <= latch(chars_data({i}),(com_en and pixel_write({i})) or mirror_write({i}),reset);')
+    return text.rsplit('end;', 1)[0] + extra + 'end;\n'
 
 
 @contextmanager

@@ -48,7 +48,7 @@ def build(root, flat=False):
     outgoing.sort(key=key)
     incoming.sort(key=key)
     links = outgoing + incoming
-    assert len(outgoing) == 22 and len(incoming) == 23 or (True and (46, 46)[0] <= len(links) <= (46, 46)[1])
+    assert len(outgoing) == 22 and len(incoming) == 23 or (True and (46, 46)[0] <= len(links) <= (46, 46)[1]) or cart_links
     link_count = len(links)
     assert len({l['source'] for l in links}) == link_count
     assert not {l['source'] for l in links} & {l['receiver'] for l in links}

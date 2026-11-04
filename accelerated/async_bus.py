@@ -57,6 +57,11 @@ def combine(cpu, service, terminal=None, cartridge=None):
         for name in cartridge.ports:
             if name != 'cart_address':
                 bind(0, name, module, name)
+        # the console watches the CPU's memory bus for board writes and the PC for cartridge mode
+        bind(2, 'screen_write', 0, 'cart_screen_write')
+        bind(2, 'screen_address', 0, 'bus_address')
+        bind(2, 'screen_data', 0, 'bus_write_data')
+        bind(2, 'cart_mode', 0, 'cart_mode_out')
     if terminal:
         bind(2, 'reset', 0, 'reset')
         bind(2, 'faulted', 0, 'faulted')

@@ -2,64 +2,87 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from rvtools import Machine, elf_text
+from rvtools import Machine
 
-base = 0x800
+BASE = 0x800
+HOT_LOOP = 9
 image = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parent / 'snake.bin').read_bytes()
 
 
-def play(script, limit=400000):
-    """script: {frame number: line typed once that frame has been drawn}."""
-    m = Machine(image, base)
-    seen = 0
+def play(keys_at_board=None, limit=200000):
+    """Run to game over. keys_at_board maps a move number to a key tapped during that move.
+    Returns the boards seen, one per move, and the machine."""
+    keys_at_board = keys_at_board or {}
+    m = Machine(image, BASE)
+    boards, last = [], None
     while not m.stop and m.retired < limit:
         m.step()
-        if len(m.frames) != seen:
-            seen = len(m.frames)
-            if seen in script and m.line is None and not m.lines:
-                m.lines.append(script[seen])
-    return m, [f.decode() for f in m.frames] + [m.cur and bytes(m.cur).decode()]
+        if m.pc == BASE + POLL:
+            board = m.screen()
+            boards.append(board)
+            if len(boards) in keys_at_board:
+                m.keys.append(keys_at_board[len(boards)])
+    return boards, m
 
 
-def rows(frame):
-    return frame.split(chr(10))[1:]
+def find_poll():
+    """The status read that ends each move: a key offered here steers the next move."""
+    for i in range(0, len(image), 4):
+        w = int.from_bytes(image[i:i + 4], 'little')
+        if w & 0xFFF0707F == 0xF1000003:
+            return i
+    raise AssertionError('no status read found')
 
 
-def head(frame):
-    r = rows(frame)
-    for y, row in enumerate(r):
-        if 'O' in row:
-            return row.index('O'), y
+POLL = find_poll()
+count = lambda board, ch: sum(row.count(ch) for row in board)
 
-
-# 1. hands off: the snake runs right along row 1 and hits the wall
-m, f = play({})
+# hands off: runs right along row 1 into the wall at column 12
+boards, m = play()
 assert m.stop
-assert rows(f[0])[1] == '....DO.....', rows(f[0])
-assert rows(f[-1])[1] == '.........DO', rows(f[-1])
-assert sum(len(x) for x in f) and all(len(x) == 12 * 4 for x in f[:-1] if x), [len(x) for x in f]
+assert boards[0][1] == '.....OO.....', boards[0]
+assert boards[0][2][6] == '+'
+assert boards[-1][1] == '..........OO', boards[-1]
+assert all(count(b, 'O') == 2 for b in boards), boards
 
-# 2. steering: down, then left, then up, then right = 2x2 loop; reversing is ignored
-m, f = play({1: 'S', 2: 'A', 3: 'W', 4: 'D'})
-path = [head(x) for x in f if x]
-print('loop path', path)
-assert path[:5] == [(5, 1), (6, 1), (6, 2), (5, 2), (5, 1)], path
+# a turn takes effect on the next move: down from column 6 reaches row 2
+boards, m = play({1: 'S'})
+assert boards[1][2][6] == 'O', boards[1]
 
-# 3. eating: food starts at index 30 = (6, 2); go there and check the tail stays (growth) and food moves
-m, f = play({1: 'S'})
-assert head(f[2]) == (6, 2)
-body = lambda fr: sum(fr.count(c) for c in 'WASDO')
-print('body lengths', [body(x) for x in f if x])
-assert body(f[2]) == body(f[1]) + 1 and '+' in f[2] and rows(f[2])[3][7] == '+', f[2]
+# eating the food at (6, 2) grows the snake and places new food on a free cell
+boards, m = play({1: 'S'})
+lengths = [count(b, 'O') for b in boards]
+assert max(lengths) == 3 and lengths[0] == 2, lengths
+assert all(count(b, '+') == 1 for b in boards), boards
 
-# 4. a ten-step run for the instruction budget
-m = Machine(image, base)
-counts, last, seen = [], 0, 0
-while not m.stop and m.retired < 100000:
+# reversal and unknown keys are ignored
+plain = play()[0]
+assert play({2: 'A'})[0] == plain
+assert play({2: 'Q'})[0] == plain
+
+# the top and bottom edges wrap: up from row 1 comes back on row 3, still running
+boards, m = play({1: 'W'}, limit=2000)
+assert boards[2][0][6] == 'O' and boards[3][3][6] == 'O' and not m.stop, boards[3]
+
+# the left wall ends the game
+boards, m = play({1: 'W', 2: 'A'})
+assert m.stop and boards[-1][0][0] == 'O', boards[-1]
+
+# running into a body cell ends the game
+m = Machine(image, BASE)
+m.ram[16 + 9] = 1
+while not m.stop and m.retired < 1000:
     m.step()
-    if len(m.frames) != seen:
-        seen = len(m.frames)
-        counts.append(m.retired - last)
-        last = m.retired
-print('cartridge words:', len(image) // 4, ' instructions per game step:', counts)
+assert m.stop and m.x[10] == 16 + 9, m.x[10]
+
+# cost of one move in steady state
+m = Machine(image, BASE)
+marks = []
+while len(marks) < 4 and not m.stop:
+    m.step()
+    if m.pc == BASE + POLL:
+        marks.append(m.retired)
+costs = [b - a for a, b in zip(marks, marks[1:])]
+assert costs == [HOT_LOOP] * 3, costs
+print(f'cartridge words: {len(image) // 4}, instructions per move: {costs[0]}, instructions to first move: {marks[0]}')
 print('OK')

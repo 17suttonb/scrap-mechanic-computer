@@ -1,87 +1,67 @@
-/* Snake for the RV32E console computer (11x4 playfield on the 12x4 text screen, 5x7 font).
+/* Snake for the RV32E console computer: 12x4 board, compiled to a program cartridge.
  *
- * Memory map used (the cartridge sees the 64-byte RAM at address 0; see docs/cartridge.md):
- *   RAM 0..63   the board: 4 rows of 16 bytes, of which columns 0..10 are the playfield
- *   -252        write: character to the screen (10 = newline); the screen is a 4-row scrolling terminal
- *   -250        write: acknowledge the submitted input line
- *   -240        read:  bit 7 set = a line is waiting
- *   -236        read:  next character of the waiting line
+ * Written for speed: a move is nine RV32E instructions, which the cartridge builder folds into six
+ * single-cycle rows, with no console transactions at all.
  *
- * The board doubles as screen buffer and body list:
- *   '.' empty   '+' food   'O' head   W A S D  a body cell holding the direction to the next cell
- * so drawing is a straight copy and the tail advances by reading the letter in its cell.
- * A cell's address is its position: pos = row * 16 + column.  Columns 11..15 are walls
- * (any byte that is neither '.' nor '+' stops the snake).
+ * Memory map (see docs/cartridge.md):
+ *   board   Register-addressed cartridge loads and stores reach the 64-byte RAM using only the low
+ *           six address bits, so positions wrap.  A store also writes the matching screen cell, in
+ *           the same cycle and without stalling, so drawing costs nothing extra.  Row = addr / 16,
+ *           column = addr & 15.  The screen shows 0 as '.', 2 as '+' and anything else as 'O'.
+ *   -240    bit 7 set = a key is waiting.  -236 reads that key and takes it.
  *
- * The console has no clear-screen code and wraps to a new row as soon as a 12th character is
- * written, so a frame is a newline followed by four rows of 11 characters separated by newlines:
- * the terminal scrolls, and the four new rows replace the four old ones.
+ * Before jumping here the firmware has cleared the board and set wall bytes in columns 12 and 15
+ * of every row, and the console has blanked the screen and stopped echoing keys.
  *
- * Steer by typing W, A, S or D then ENTER; with no input the snake keeps going.
- * Hitting a wall or the body ends the game; the final board stays on screen.
- * Only byte loads/stores, no calls, no stack: every variable lives in a register.
+ * A body cell holds the step to the next body cell, so moving the head is one add and the tail
+ * follows by adding what it reads.  The head cell always holds the current direction; a turn
+ * rewrites it.  Empty is 0, so "is this cell free" is a single test.  The left and right walls and
+ * the body end the game (including the cell the tail is about to leave), and the last board stays
+ * on the screen.  The top and bottom edges wrap around.
+ *
+ * Steer with a single tap of W, A, S or D.  No ENTER.  RESET returns to BASIC.
+ * Registers x1, x8 and x9 are left alone so the function needs no stack.
  */
-#define RAM ((volatile unsigned char *)0)
-#define SCREEN (*(volatile unsigned char *)-252)
-#define ACK (*(volatile unsigned char *)-250)
+#define BOARD ((volatile signed char *)0)
 #define STATUS (*(volatile signed char *)-240)
 #define KEY (*(volatile unsigned char *)-236)
 
-/* step in pos for a direction letter */
-#define MOVE(c) ((c) == 'D' ? 1 : (c) == 'A' ? -1 : (c) == 'S' ? 16 : -16)
+/* The firmware passes the starting state in registers, which it can set all at once. */
+void __attribute__((noreturn)) _start(int head, int tail, int step, int food, int food_mark) {
+    int cell;
 
-#define ROW(r) \
-    SCREEN = RAM[r * 16 + 0];  SCREEN = RAM[r * 16 + 1];  SCREEN = RAM[r * 16 + 2];  SCREEN = RAM[r * 16 + 3]; \
-    SCREEN = RAM[r * 16 + 4];  SCREEN = RAM[r * 16 + 5];  SCREEN = RAM[r * 16 + 6];  SCREEN = RAM[r * 16 + 7]; \
-    SCREEN = RAM[r * 16 + 8];  SCREEN = RAM[r * 16 + 9];  SCREEN = RAM[r * 16 + 10];
-
-void __attribute__((noreturn)) _start(void) {
-    int i, head, tail, food, dir, c;
-
-    for (i = 0; i < 64; i++) RAM[i] = (i & 15) >= 11 ? 'X' : '.';
-
-    head = 21;                  /* row 1, column 5 */
-    tail = 20;
-    dir = 'D';
-    RAM[tail] = 'D';
-    RAM[head] = 'O';
-    food = 38;                  /* row 2, column 6 */
-    RAM[food] = '+';
+    BOARD[tail] = step;
+    BOARD[head] = step;
+    BOARD[food] = food_mark;
 
     for (;;) {
-        SCREEN = 10; ROW(0);
-        SCREEN = 10; ROW(1);
-        SCREEN = 10; ROW(2);
-        SCREEN = 10; ROW(3);
-
-        if (STATUS < 0) {
-            c = KEY;
-            ACK = 0;
-            /* accept only W/A/S/D, and not a reversal of the current direction */
-            if ((c == 'W' || c == 'A' || c == 'S' || c == 'D') && MOVE(c) + MOVE(dir) != 0)
-                dir = c;
-        }
-
-        RAM[head] = dir;
-        head += MOVE(dir);
-        if ((unsigned)head >= 64) break;
-
-        c = RAM[head];
-        if (c == '+') {
-            /* grow: keep the tail; the next free cell, stepping by 17 (mod 64), gets the food */
-            for (i = 0; i < 64; i++) {
-                food = (food + 17) & 63;
-                if (RAM[food] == '.') { RAM[food] = '+'; break; }
+        do {
+            head += step;
+            cell = BOARD[head];
+            BOARD[head] = step;
+            if (__builtin_expect(cell != 0, 0)) {
+                if (cell != food_mark) {
+                    for (;;) { }
+                }
+                do {
+                    food = (food + 17) & 63;
+                } while (BOARD[food] != 0);
+                BOARD[food] = food_mark;
+            } else {
+                cell = BOARD[tail];
+                BOARD[tail] = 0;
+                tail += cell;
             }
-        } else if (c != '.') {
-            break;
-        } else {
-            c = RAM[tail];
-            RAM[tail] = '.';
-            tail += MOVE(c);
+        } while (__builtin_expect(STATUS >= 0, 1));
+
+        int key = KEY, next = 0;
+        if (key == 'W') next = -16;
+        else if (key == 'S') next = 16;
+        else if (key == 'A') next = -1;
+        else if (key == 'D') next = 1;
+        if (next != 0 && next + step != 0) {
+            step = next;
+            BOARD[head] = step;
         }
-        RAM[head] = 'O';
     }
-    /* game over: keep the final board and stop */
-    for (;;) { }
 }

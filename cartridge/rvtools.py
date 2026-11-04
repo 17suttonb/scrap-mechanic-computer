@@ -69,65 +69,46 @@ def disasm(w, pc=0):
 
 
 class Machine:
-    """RV32E with 64 bytes of RAM and the console MMIO. `lines` are the lines the user "types"."""
+    """RV32E with the cartridge's view of the machine, in the state the firmware leaves on entry:
+    board cleared, wall bytes in columns 12 and 15, arguments in a0..a5.  `keys` are single keys delivered one at a time."""
 
-    def __init__(self, image, base, lines=(), ram_size=64):
+    def __init__(self, image, base, keys=()):
         self.image, self.base = image, base
-        self.ram = bytearray(ram_size)
+        self.ram = bytearray(64)
+        for row in range(4):
+            self.ram[row * 16 + 12] = self.ram[row * 16 + 15] = 3
         self.x = [0] * 32
+        self.x[10:15] = [21, 20, 1, 38, 2]          # the arguments the firmware passes
         self.pc = base
-        self.lines = list(lines)       # input lines, one delivered each time the previous is acknowledged
-        self.line = None               # line currently waiting (bytes), until ACK
-        self.pos = 0
-        self.frames = []
-        self.newlines = 0
-        self.cur = []
+        self.keys = list(keys)
         self.retired = 0
-        self.polls = 0
         self.stop = False
-        self.on_poll = None            # optional callback(machine) invoked on every status read
 
-    def load(self, a, size, signed):
+    def screen(self):
+        """What the console shows: RAM cells through the display map."""
+        glyph = lambda v: '.' if v == 0 else '+' if v == 2 else 'O'
+        return [''.join(glyph(self.ram[r * 16 + c]) for c in range(12)) for r in range(4)]
+
+    def load(self, a, size, signed, static=False):
         a &= M32
+        if not static:
+            a &= 63
         if a >= 0xFFFFFF00:
             off = a - 0x100000000
             if off == -240:
-                self.polls += 1
-                if self.on_poll:
-                    self.on_poll(self)
-                if self.line is None and self.lines:
-                    self.line = (self.lines.pop(0) + '\0').encode()
-                    self.pos = 0
-                v = 0x80 if self.line is not None else 0
+                v = 0x80 if self.keys else 0
             elif off == -236:
-                assert self.line is not None
-                v = self.line[min(self.pos, len(self.line) - 1)]
-                self.pos += 1
+                v = ord(self.keys.pop(0)) if self.keys else 0
             else:
                 raise AssertionError(f'load from unmapped MMIO {off}')
         else:
-            assert 0 <= a and a + size <= len(self.ram), f'RAM load out of range {a:#x} at pc {self.pc:#x}'
+            assert a + size <= len(self.ram), f'RAM load out of range {a:#x} at pc {self.pc:#x}'
             v = int.from_bytes(self.ram[a:a + size], 'little')
         return sx(v, size * 8) & M32 if signed else v & ((1 << size * 8) - 1)
 
     def store(self, a, size, v):
-        a &= M32
-        if a >= 0xFFFFFF00:
-            off = a - 0x100000000
-            if off == -252:
-                if v & 255 == 10:
-                    if self.newlines % 4 == 0 and self.cur:      # each frame is four newline-led rows
-                        self.frames.append(bytes(self.cur))
-                        self.cur = []
-                    self.newlines += 1
-                self.cur.append(v & 255)
-            elif off == -250:
-                self.line = None
-            else:
-                raise AssertionError(f'store to unmapped MMIO {off}')
-        else:
-            assert 0 <= a and a + size <= len(self.ram), f'RAM store out of range {a:#x} at pc {self.pc:#x}'
-            self.ram[a:a + size] = (v & ((1 << size * 8) - 1)).to_bytes(size, 'little')
+        a &= 63
+        self.ram[a:a + size] = (v & ((1 << size * 8) - 1)).to_bytes(size, 'little')
 
     def step(self):
         i = (self.pc - self.base) // 4
@@ -145,7 +126,7 @@ class Machine:
             res = {0: lambda: (a - bb if sub else a + bb), 1: lambda: a << sh, 2: lambda: int(sx(a, 32) < sx(bb, 32)), 3: lambda: int(a < bb),
                    4: lambda: a ^ bb, 5: lambda: (sx(a, 32) >> sh) if d['f7'] == 32 else a >> sh, 6: lambda: a | bb, 7: lambda: a & bb}[f3]()
         elif op == 3:
-            res = self.load(a + d['i'], [1, 2, 4, 0, 1, 2][f3], f3 < 3)
+            res = self.load(a + d['i'], [1, 2, 4, 0, 1, 2][f3], f3 < 3, d['ra'] == 0)
         elif op == 35:
             self.store(a + d['s'], 1 << f3, b)
         elif op == 99:

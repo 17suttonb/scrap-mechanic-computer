@@ -1,5 +1,7 @@
 # Beta optimisations
 
+Later work on `--beta`, including a faster CPU clock, is in [fast-cpu.md](fast-cpu.md) and [cartridge.md](cartridge.md).
+
 Branch: `beta-optimisations`. Build with:
 
 ```powershell

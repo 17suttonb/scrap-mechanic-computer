@@ -28,12 +28,41 @@ direct_letter_next:
     beq x1,x11,direct_letter_next
     addi x6,x1,-61
     beq x6,x0,direct_expression_start
+    bne x1,x0,direct_keyword
+    addi x6,x4,-83
+    beq x6,x0,enter_cartridge
+direct_keyword:
     mv x3,x4
     mv x4,x1
     li x9,4294963456
     addi x10,x0,-1
     addi x13,x0,10
     j keyword_dispatch_loaded
+enter_cartridge:
+    ; Clear the board and set the wall bytes (columns 12 and 15 of each row), then run the cartridge.
+    li x6,50331651
+    sw x6,12(x8)
+    sw x6,28(x8)
+    sw x6,44(x8)
+    sw x6,60(x8)
+    sw x0,0(x8)
+    sw x0,4(x8)
+    sw x0,8(x8)
+    sw x0,16(x8)
+    sw x0,20(x8)
+    sw x0,24(x8)
+    sw x0,32(x8)
+    sw x0,36(x8)
+    sw x0,40(x8)
+    sw x0,48(x8)
+    sw x0,52(x8)
+    sw x0,56(x8)
+    addi x10,x0,21      ; arguments: head, tail, step, food, food mark
+    addi x11,x0,20
+    addi x12,x0,1
+    addi x13,x0,38
+    addi x14,x0,2
+    j 2048
 direct_general_fresh:
     mv x4,x1
     li x9,4294963456
@@ -75,13 +104,7 @@ keyword_dispatch_loaded:
     beq x6,x0,help_command
     addi x6,x3,-67
     beq x6,x0,letter_c
-    addi x6,x3,-83
-    beq x6,x0,letter_s
     j error
-letter_s:
-    bne x4,x0,error
-    sb x0,-250(x0)
-    j 2048
 assignment:
     addi x6,x4,-65
     addi x7,x0,26

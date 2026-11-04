@@ -5,6 +5,7 @@ from unittest.mock import patch
 from accelerated.hdl import Build
 from accelerated import character_terminal
 from accelerated.terminal import KEYS
+from accelerated.cartridge import console_source
 
 def source(text, debug=False):
     text = text.replace('port(capture,commit,reset,faulted:in bit;', 'port(capture,commit,reset,faulted,key_settled,key_available:in bit;', 1)
@@ -85,8 +86,17 @@ def attach(build, queue_depth=0):
     for i in (clearing, recent, reset, busy):
         c.connect(i, available)
     replacement = {**dict(zip(keys, pending)), settled_pin: settled, available_pin: lamp if queue_depth else available}
+    removed = {settled_pin, available_pin}
+    if 'screen_late' in ports:
+        # A board write's data settles through the cell's input mux before its write pulse arrives.
+        late = ports.pop('screen_late')['node_ids'][0]
+        delayed = ports['screen_write']['node_ids'][0]
+        for i in range(6):
+            delayed = gate('OR', [delayed], f'screen write delay {i}')
+        replacement[late] = delayed
+        removed.add(late)
     c.edges = {(replacement.get(a, a), b) for a, b in old_edges} | c.edges - old_edges
-    c.remove({settled_pin, available_pin})
+    c.remove(removed)
     c.validate()
     report = deepcopy(build.report)
     report.update(keyboard_ready_label='KEY READY', tap_keyboard=dict(capacity=queue_depth or 1, physical_keys=len(keys), minimum_tested_press_updates=None, settle_updates=16, policy=(f'FIFO of {queue_depth} keystrokes: tap keys in order; KEY READY is ON while the queue has room. Chords and presses while the queue is full are discarded.' if queue_depth else 'Tap once when KEY READY is ON; release; next key when KEY READY returns. Chords and presses while unavailable are discarded.'), retained_until_console_capture=True, held_key_repeat=False), blocks=len(c.nodes), wires=len(c.edges), gates=dict(Counter((n['kind'] for n in c.nodes.values()))))
@@ -95,7 +105,9 @@ def attach(build, queue_depth=0):
 def terminal(boot_text, **options):
     debug = options.pop('debug', False)
     queue_depth = options.pop('key_queue', 0)
+    screen = options.pop('screen', False)
     provider = character_terminal.old_source
-    with patch.object(character_terminal, 'old_source', lambda *a, **kw: source(provider(*a, **kw), debug)):
+    cells = character_terminal.source
+    with patch.object(character_terminal, 'old_source', lambda *a, **kw: source(provider(*a, **kw), debug)), patch.object(character_terminal, 'source', (lambda *a, **kw: console_source(cells(*a, **kw))) if screen else cells):
         build = character_terminal.terminal(boot_text, **options)
     return attach(build, queue_depth)

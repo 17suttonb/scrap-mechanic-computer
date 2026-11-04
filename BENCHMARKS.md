@@ -26,3 +26,12 @@ Snake cartridge (branch `snake-rom`), measured in one session, two runs each, sa
 
 The slowdown is host simulation speed only: the cartridge build has about 1.3k more logic blocks (+3.6%: CORE 22.9k to 23.8k, plus the 0.4k CARTRIDGE), and the CPU clock settings (20/6/12/6) and BASIC behaviour are unchanged.
 The BASIC idle workload does not run the cartridge; the Snake workload is in docs/cartridge.md.
+
+Fast clock and cartridge mode (branch `snake-fast`), one session, two runs each, same idle workload, no halt or fault:
+
+| Date | Commit | Variant | Joined blueprint sha256 (prefix) | Ticks | Wall (s) | Ticks/sec | vs. previous |
+|---|---|---|---|---|---|---|---|
+| 2026-11-04 | fb5fa7f (input-queue) | `--beta`, C49 (re-measured) | b276c586395d | 20000 | 43.45 / 39.81 | 460.3 / 502.4 | baseline |
+| 2026-11-04 | snake-fast | `--beta` with cartridge, C33 | 7a8aa3de5076 | 20000 | 66.80 / 59.38 | 299.4 / 336.8 | -33% (mean 318 vs 481) |
+
+Host simulation is slower because the CPU clock runs about 1.5 times as often per update, so more gates switch. The machine was busier than for earlier rows. This measures simulator speed, not machine speed: command times are in docs/fast-cpu.md (897.6 s against 1228.3 s for the same 14 commands).

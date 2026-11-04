@@ -1,8 +1,9 @@
 from collections import defaultdict
+from contextlib import contextmanager
 from copy import deepcopy
 import re
 from unittest.mock import patch
-from accelerated import register_alias, pair_branch
+from accelerated import compact_core, register_alias, pair_branch
 from accelerated.async_bus import replace_once
 from accelerated.compact_core import metadata
 from accelerated.cpu_components import compact_text_mux_cpu as base_cpu
@@ -41,8 +42,11 @@ def frontend(text, image, fast_shifts=False):
         text = replace_once(text, 'or d_shiftleft or d_shiftright;', "or '0';")
     return text
 
-def bundles(image, maximum=4, wide=False, static_stores=False, fuse_loads=True, register_heads=False, safe_control=False):
-    """Conservative, bounded extra issue lanes, selected by opcode semantics."""
+def bundles(image, maximum=4, wide=False, static_stores=False, fuse_loads=True, register_heads=False, safe_control=False, branch_runs=False):
+    """Conservative, bounded extra issue lanes, selected by opcode semantics.
+
+    With branch_runs, adjacent equality branches are evaluated together, first taken wins. A run
+    has no side effects after its first branch, except a final jump."""
     rows = metadata(image)
     existing = pair_branch.pairs(image)
     result = {}
@@ -56,11 +60,16 @@ def bundles(image, maximum=4, wide=False, static_stores=False, fuse_loads=True, 
 
     def arithmetic(r):
         return r['legal'] and r['rd'] and (r['word'] & 127 == 55 or (r['word'] & 127 == 19 and r['f3'] in (0, 1, 4, 5, 6, 7)))
+    def equality_branch(r):
+        return branch_runs and r['legal'] and r['branch'] and r['f3'] in (0, 1) and r['target'] % 4 == 0 and r['target'] < len(image)
     for index, first in enumerate(rows):
-        if first['pc'] in existing or not (arithmetic(first) or (register_heads and first['legal'] and (first['word'] & 127 == 51) and first['rd']) or (fuse_loads and first['legal'] and first['load'] and first['rd']) or (wide and first['legal'] and first['store'])):
+        if first['pc'] in existing or not (equality_branch(first) or arithmetic(first) or (register_heads and first['legal'] and (first['word'] & 127 == 51) and first['rd']) or (fuse_loads and first['legal'] and first['load'] and first['rd']) or (wide and first['legal'] and first['store'])):
             continue
         seq = [first]
+        in_run = equality_branch(first)
         for r in rows[index + 1:index + maximum]:
+            if in_run and not (equality_branch(r) or (r['legal'] and r['jal'] and not r['rd'] and r['target'] % 4 == 0 and r['target'] < len(image))):
+                break
             if ram_store(r):
                 r = dict(r, fusion_store_address=static[r['pc']]['imm'])
                 seq.append(r)
@@ -69,6 +78,9 @@ def bundles(image, maximum=4, wide=False, static_stores=False, fuse_loads=True, 
                 if safe_control and r['branch'] and (r['f3'] not in (0, 1) or {r['ra'], r['rb']} & {v['rd'] for v in seq if v['rd']}):
                     break
                 seq.append(r)
+                if equality_branch(r):
+                    in_run = True
+                    continue
                 break
             if not arithmetic(r):
                 break
@@ -84,9 +96,18 @@ def bundles(image, maximum=4, wide=False, static_stores=False, fuse_loads=True, 
                 result[first['pc']] = seq
     return result
 
-def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=True, register_heads=False, safe_control=False):
+def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=True, register_heads=False, safe_control=False, branch_runs=False):
     text = pair_branch.source(text, image)
-    selected = bundles(image, maximum, wide, static_stores, fuse_loads, register_heads, safe_control)
+    selected = bundles(image, maximum, wide, static_stores, fuse_loads, register_heads, safe_control, branch_runs)
+    shared_equal = {}
+
+    def equal(a, b):
+        nonlocal decl, extra
+        if (a, b) not in shared_equal:
+            shared_equal[a, b] = f'fusion_equal_{len(shared_equal)}'
+            decl += f'  signal {shared_equal[a, b]}:bit;\n'
+            extra += f'  {shared_equal[a, b]} <= {a} = {b};\n'
+        return shared_equal[a, b]
     decl = '  signal fusion_issue:bit;signal fusion_next_pc:bit_vector(31 downto 0);signal fusion_ret_increment:bit_vector(15 downto 0);\n'
     extra = ''
     writes = defaultdict(list)
@@ -119,6 +140,10 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
             destinations[first['rd']] = 'result'
         target = constant(seq[-1]['pc'] + 4)
         branch_test = None
+        controls = []
+        if first['branch']:
+            test = equal(f"regs({first['ra']})", f"regs({first['rb']})")
+            controls.append((test if first['f3'] == 0 else f'not {test}', first['target']))
         for lane, row in enumerate(seq[1:], 1):
 
             def reg(r):
@@ -137,7 +162,10 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
                     stores[row['fusion_store_address'] - 4096 + byte] = f'{word}({byte * 8 + 7} downto {byte * 8})'
                 continue
             if row['branch']:
-                if f in (0, 1):
+                if branch_runs and f in (0, 1):
+                    test = equal(a, b) if f == 0 else f'not {equal(a, b)}'
+                    controls.append((test, row['target']))
+                elif f in (0, 1):
                     test = f"({a} {('=' if f == 0 else '/=')} {b})"
                 else:
                     test = f'fusion_taken_{pc}'
@@ -211,7 +239,22 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
                 writes[r].append((site, value))
         for address, value in stores.items():
             ram_writes[address].append((site, value))
-        nexts.append((site, seq[-1], branch_test))
+        if first['branch'] or len(controls) > 1:
+            # first taken branch wins, then the final jump or the fall-through
+            fall = seq[-1]['target'] if seq[-1]['jal'] else seq[-1]['pc'] + 4
+            ways, passed = [], []
+            for k, (test, dest) in enumerate(controls):
+                name = f'fusion_way_{pc}_{k}'
+                decl += f'  signal {name}:bit;\n'
+                extra += f"  {name} <= {' and '.join(passed + [test])};\n"
+                ways.append((name, dest))
+                passed.append(f'not {test}' if not test.startswith('not ') else test[4:])
+            name = f'fusion_way_{pc}_end'
+            decl += f'  signal {name}:bit;\n'
+            extra += f"  {name} <= {' and '.join(passed)};\n"
+            nexts.append((site, ways + [(name, fall)], None))
+        else:
+            nexts.append((site, seq[-1], branch_test))
         lengths[len(seq)].append(site)
     if not selected:
         return text
@@ -222,6 +265,9 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
     for bit in range(32):
         terms = [f'(not fusion_issue and normal_next_pc({bit}))']
         for site, last, test in nexts:
+            if isinstance(last, list):
+                terms += [f'({site} and {name})' for name, dest in last if dest >> bit & 1]
+                continue
             fall = last['pc'] + 4
             dest = last['target'] if last['branch'] or last['jal'] else fall
             yes = dest >> bit & 1
@@ -282,17 +328,102 @@ def fusion(text, image, maximum=4, wide=False, static_stores=False, fuse_loads=T
 def cpu(image, ram_bytes=64, **options):
     """With `cartridge` set, `image` is the firmware padded to the cartridge window followed by the
     cartridge: the analyses see all of it but the baked decoder only the firmware."""
-    cartridge = options.pop('cartridge', None)
-    if cartridge is None:
-        return firmware_cpu(image, ram_bytes, **options)
     from accelerated import cartridge as cart
-    with cart.window(), cart.cpu_text_hook():
+    cartridge = options.pop('cartridge', None)
+    transforms = [flat_result_path] if options.get('beta') else []
+    if cartridge is None:
+        with final_text_hook(transforms):
+            return firmware_cpu(image, ram_bytes, **options)
+    with cart.window(), final_text_hook([cart.cpu_source] + transforms):
         result = firmware_cpu(image, ram_bytes, **options)
     result.report['cpu']['cartridge'] = dict(base=cart.BASE, words=len(cartridge) // 4, address_bits=cart.ADDRESS_BITS)
     return result
 
+@contextmanager
+def final_text_hook(transforms):
+    """Apply text transforms to the finished CPU HDL just before it compiles. They must keep every
+    existing line on its line number: storage selection is keyed by source line."""
+    original = compact_core.compile_source
+
+    def hooked(text, *args, **kwargs):
+        for transform in transforms:
+            text = transform(text)
+        return original(text, *args, **kwargs)
+    with patch.object(compact_core, 'compile_source', hooked):
+        yield
+
+def flat_result_path(text):
+    """Replace the priority chains on the load and result muxes with one-hot AND-OR.
+
+    The cases are mutually exclusive by decode, so priority is not needed, and these chains were
+    the deepest part of the paths that set the CPU clock."""
+    def statement(name):
+        match = re.search(rf'^  {name} <=.*?;$', text, re.M | re.S)
+        assert match, name
+        return match
+
+    load = statement('load_word')
+    word_loads = 'bits(0,32);' not in load[0]
+    text = text[:load.start()] + '\n' * load[0].count('\n') + text[load.end():]
+    extra = '  load_sign_byte <= (d_f3 = bits(0,3)) and byte_value(7);\n  load_sign_half <= (d_f3 = bits(1,3)) and region_ram and ram_word(15);\n  load_upper <= (d_f3(0) or d_f3(1)) and region_ram;\n  load_whole <= d_f3(1) and region_ram;\n'
+    for bit in range(32):
+        if bit < 8:
+            value = f'byte_value({bit})'
+        elif bit < 16:
+            value = f'or_reduce(load_sign_byte & (load_upper and ram_word({bit})))'
+        else:
+            whole = f' & (load_whole and ram_word({bit}))' if word_loads else ''
+            value = f'or_reduce(load_sign_byte & load_sign_half{whole})'
+        extra += f'  load_word({bit}) <= {value};\n'
+    result = statement('result')
+    left = re.search(r'([\w()]+) when d_shiftleft', result[0])[1]
+    right = re.search(r'([\w()]+) when d_shiftright', result[0])[1]
+    text = text[:result.start()] + '\n' * result[0].count('\n') + text[result.end():]
+    extra += '  result_link <= d_jal or d_jalr;\n  result_alu <= not or_reduce(d_load & d_jal & d_jalr & d_shiftleft & d_shiftright & d_compare);\n  result_compare <= d_compare and ((d_f3(0) and unsigned_less) or (not d_f3(0) and signed_less));\n'
+    for bit in range(32):
+        terms = [f'(d_load and load_word({bit}))', f'(result_link and d_link({bit}))', f'(d_shiftleft and {left}({bit}))', f'(d_shiftright and {right}({bit}))', f'(result_alu and alu_y({bit}))']
+        if bit == 0:
+            terms.append('result_compare')
+        extra += f'  result({bit}) <= or_reduce(' + ' & '.join(terms) + ');\n'
+    # the trap test sits on every write enable: test the conditions directly, not the encoded cause
+    assert text.count('  cause_bad <= or_reduce(cause) or') == 1
+    text = text.replace('  cause_bad <= or_reduce(cause) or', '  cause_bad <= or_reduce((not pc_valid) & (not d_legal) & d_stop & ((d_load or d_store) and not (mem_aligned and mem_valid))) or')
+    # next_pc can only be misaligned through jalr: ROM and cartridge targets are aligned when built
+    assert text.count('((d_jal or d_jalr or (d_branch and taken)) and or_reduce(next_pc(1 downto 0)))') == 1
+    text = text.replace('((d_jal or d_jalr or (d_branch and taken)) and or_reduce(next_pc(1 downto 0)))', '(d_jalr and alu_y(1))')
+    taken = re.search(r'^  taken <= eq when.*?;$', text, re.M | re.S)
+    flat = '  taken <= or_reduce(((funct3 = bits(0,3)) and eq) & ((funct3 = bits(1,3)) and not eq) & ((funct3 = bits(4,3)) and slt) & ((funct3 = bits(5,3)) and not slt) & ((funct3 = bits(6,3)) and ult) & ((funct3 = bits(7,3)) and not ult));'
+    text = text[:taken.start()] + flat + chr(10) * taken[0].count(chr(10)) + text[taken.end():]
+    # Register-addressed firmware loads (program text, input stream, variables) are the deepest
+    # remaining paths: give them a second cycle. Cartridge rows do not reach text or the stream,
+    # so their board reads stay single-cycle.
+    slow = re.search(r'^  slow_class <= [^;]*;', text, re.M)
+    fast_rows = ' and not cart_legal' if 'cart_legal' in text else ''
+    text = text[:slow.end() - 1] + f' or (d_load and not d_static_memory{fast_rows})' + text[slow.end() - 1:]
+    # Console registers are only ever addressed statically: decode them from the instruction alone.
+    for name, value in (('region_input', 536870882), ('region_gpio', 536870880)):
+        old = f'  {name} <= address(31 downto 3) = bits({value},29);'
+        assert text.count(old) == 1, old
+        text = text.replace(old, f'  {name} <= d_static_memory and (d_imm(31 downto 3) = bits({value},29));')
+    # A bad memory access stops the CPU one instruction late, so the address decoders stay off the
+    # path to every write enable.
+    old = '((d_load or d_store) and not (mem_aligned and mem_valid))'
+    assert text.count(old) == 1
+    text = text.replace(old, 'mem_fault_q')
+    extra += '  mem_fault_stage <= latch((d_load or d_store) and not (mem_aligned and mem_valid),cap_en,reset);\n  mem_fault_q <= latch(mem_fault_stage,com_en,reset);\n'
+    # The next PC: same flattening, on the path from a branch comparison to the PC.
+    old = "  normal_next_pc <= alu_y(31 downto 1) & '0' when d_jalr else d_target when d_jal or (d_branch and taken) or (pair_issue and pair_taken) else d_link;"
+    assert text.count(old) == 1
+    key = ' or (cart_key and ready_seen) or (cart_nokey and not ready_seen)' if 'cart_legal' in text else ''
+    text = text.replace(old, f'  next_take <= (d_jal or (d_branch and taken) or (pair_issue and pair_taken){key}) and not d_jalr;  next_link <= not (d_jalr or d_jal or (d_branch and taken) or (pair_issue and pair_taken){key});')
+    for bit in range(32):
+        jump = f'(d_jalr and alu_y({bit})) & ' if bit else ''
+        extra += f'  normal_next_pc({bit}) <= or_reduce({jump}(next_take and d_target({bit})) & (next_link and d_link({bit})));\n'
+    text = text.replace('  signal regs:registers_t;', '  signal load_sign_byte,load_sign_half,load_upper,load_whole,result_link,result_alu,result_compare,mem_fault_stage,mem_fault_q,next_take,next_link:bit;  signal regs:registers_t;', 1)
+    return text.rsplit('end;', 1)[0] + extra + 'end;\n'
+
 def firmware_cpu(image, ram_bytes=64, **options):
-    options.pop('beta', None)
+    branch_runs = options.pop('beta', False)
     fast_shifts = options.pop('fast_shifts', False)
     original = register_alias.source
 
@@ -302,7 +433,7 @@ def firmware_cpu(image, ram_bytes=64, **options):
 
     def paired(text, img):
         with patch.object(pair_branch, 'source', old_pair):
-            return fusion(text, img, 6, True, True, False, True, True)
+            return fusion(text, img, 6, True, True, False, True, True, branch_runs)
     original_builder = Builder.__init__
 
     def research_builder(b, *args, **kwargs):
@@ -312,7 +443,7 @@ def firmware_cpu(image, ram_bytes=64, **options):
         result = base_cpu(image, ram_bytes, **options)
     result.report = deepcopy(result.report)
     result.report['cpu']['modular_acceleration'] = dict(direct_operand_predecode=True, flat_carry_lookahead=True, dedicated_address_adder=False, single_cycle_fixed_shifts=fast_shifts, extra_issue_lanes=True)
-    result.report['cpu']['retirement_bundle_lengths'] = {str(pc): len(seq) for pc, seq in bundles(image, 6, True, True, False, True, True).items()}
+    result.report['cpu']['retirement_bundle_lengths'] = {str(pc): len(seq) for pc, seq in bundles(image, 6, True, True, False, True, True, branch_runs).items()}
     result.report['cpu']['modular_acceleration']['parallel_static_RAM_stores'] = True
     result.report['cpu']['modular_acceleration']['fused_loads'] = False
     result.report['cpu']['modular_acceleration']['register_ALU_bundle_heads'] = True
