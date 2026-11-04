@@ -9,7 +9,7 @@ venv/
 .ruff_cache/
 
 # Build outputs (build.py)
-out-blueprints/
+out-blueprints*/
 .build/
 
 # Rust (circuit_viewer)

@@ -18,7 +18,7 @@ from accelerated.split import prototype
 from accelerated.layout import build as layout
 from accelerated.io import read, save
 
-def build_current(package_root, output, work):
+def build_current(package_root, output, work, flat=False):
     package_root = Path(package_root).resolve()
     recipe = read(package_root / 'release.json')
     work = Path(work).resolve() / str(uuid.uuid4())
@@ -49,12 +49,17 @@ def build_current(package_root, output, work):
     record.update(blueprint_sha256=hashlib.sha256(raw).hexdigest(), orders=orders)
     release = work / 'release'
     prototype(record, release)
-    layout(release)
+    layout(release, flat=flat)
     modules = read(release / 'modules.json')['modules']
     comparison = {}
     for key, module in modules.items():
         expected = recipe['modules'][key]
         comparison[key] = dict(expected=expected['blueprint_sha256'], rebuilt=module['blueprint_sha256'], identical=expected['blueprint_sha256'] == module['blueprint_sha256'])
+        if flat:
+            # The flat panel layout is an unpinned variant: only the import limit applies.
+            if not module['packet_bytes'] < 524288:
+                raise ValueError(f'{key} packet size exceeds the import limit')
+            continue
         if not comparison[key]['identical']:
             raise ValueError(f'{key} blueprint differs from the current release')
         if not expected['packet_bytes'] == module['packet_bytes'] < 524288:
@@ -71,5 +76,5 @@ def build_current(package_root, output, work):
         print('EXPORTED', description['name'], dest, flush=True)
         comparison[key]['export_folder'] = str(dest)
     save(work / 'verification.json', comparison)
-    print('IDENTICAL: both accelerated blueprint.json files match the pinned release', flush=True)
+    print('FLAT PANEL VARIANT: layout differs from the pinned release by design' if flat else 'IDENTICAL: both accelerated blueprint.json files match the pinned release', flush=True)
     return (comparison, work)

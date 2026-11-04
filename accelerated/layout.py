@@ -11,7 +11,12 @@ from accelerated.io import read, save
 from accelerated.packet import Encoder
 import lz4.block
 
-def build(root):
+FLAT_CONSOLE_X = 60
+FLAT_CONSOLE_Y = 20
+FLAT_CORE_Y = 44
+FLAT_CORE_TIMER_Y = 36
+
+def build(root, flat=False):
     touching = True
     title = 'FAST BASIC'
     name_prefix = 'accelerated '
@@ -49,9 +54,23 @@ def build(root):
     clock = read(src / 'clock-map.json')
     svc = read(src / 'service-clock-map.json')
     timer_ids = {t['controllerId'] for c in (clock, svc) for t in c['timers']}
+    flat_width = {}
     exposed = pixel_ids | key_ids | monitors | timer_ids | {l[k] for l in links for k in ('source', 'receiver')}
     for domain, origin in [('terminal', (-15, 3, 1)), ('cpu', (-15, 40, 1))]:
         ids = sorted((i for i in parts if owner[i] == domain and i not in exposed))
+        if flat:
+            # One upright wall (x-z plane, bottom row on the ground plane), twice as wide as tall.
+            # Each logic block is turned 180 degrees about Z; the origin shifts by (1, 1) so the
+            # occupied cell stays the grid cell.
+            width = 1
+            while width * (width // 2) < len(ids):
+                width += 1
+            for n, i in enumerate(ids):
+                row, col = divmod(n, width)
+                x0, y0 = (FLAT_CONSOLE_X, FLAT_CONSOLE_Y) if domain == 'terminal' else (origin[0], FLAT_CORE_Y)
+                parts[i].update(pos=dict(x=x0 + col + 1, y=y0 + 1, z=1 + row), xaxis=-1, zaxis=3)
+            flat_width[domain] = width
+            continue
         side = 1
         while side ** 3 < len(ids):
             side += 1
@@ -61,7 +80,11 @@ def build(root):
             parts[i].update(pos=dict(x=origin[0] + x, y=origin[1] + y, z=origin[2] + layer), xaxis=1, zaxis=3)
     for domain, c, y in [('cpu', clock, 72), ('terminal', svc, 7)]:
         for n, timer in enumerate(c['timers']):
-            parts[timer['controllerId']].update(pos=dict(x=15 + 6 * n if domain == 'terminal' else -12 + 6 * n, y=y, z=1), xaxis=1, zaxis=3)
+            if flat and domain == 'cpu':
+                x, y = -12 + 6 * n, FLAT_CORE_TIMER_Y
+            else:
+                x = 15 + 6 * n if domain == 'terminal' else -12 + 6 * n
+            parts[timer['controllerId']].update(pos=dict(x=x, y=y, z=1), xaxis=1, zaxis=3)
     for index, l in enumerate(links, 1):
         row = 0 if l['direction'] == 'cpu -> terminal' else 1
         col = index - 1
@@ -135,9 +158,9 @@ def build(root):
             for n, t in enumerate(svc['timers']):
                 label('IO ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 10)
         else:
-            label('CORE MODULE', 0, 70)
+            label('CORE MODULE', 0, FLAT_CORE_TIMER_Y - 2 if flat else 70)
             for n, t in enumerate(clock['timers']):
-                label('CPU ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, 75)
+                label('CPU ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, FLAT_CORE_TIMER_Y + 3 if flat else 75)
         pad_y = 30 if domain == 'cpu' else 29
         block(-20, pad_y, 0, 3, 1, 1, color='F5D742')
         block(-20, pad_y, 1, color='F5D742')

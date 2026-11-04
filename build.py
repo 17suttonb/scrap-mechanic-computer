@@ -10,6 +10,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'out-blueprints')
     parser.add_argument('--work',type=Path,default=ROOT/'.build')
-    args=parser.parse_args();result,work=build_current(ROOT,args.output,args.work)
+    parser.add_argument('--flat',action='store_true',help='lay the logic blocks out as a single upright wall instead of a cube (unpinned variant)')
+    args=parser.parse_args()
+    if args.flat and args.output==ROOT/'out-blueprints':args.output=ROOT/'out-blueprints-flat'
+    result,work=build_current(ROOT,args.output,args.work,flat=args.flat)
     print('Verification record:',work/'verification.json')
 if __name__=='__main__':main()
