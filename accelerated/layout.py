@@ -6,7 +6,8 @@ import shutil
 import uuid
 from accelerated.circuit import BASE_UUID, GATE_UUID
 from accelerated.supports import occupied_cells, components, sparse_supports, TIMER_UUID
-from accelerated.signs import make_sign, sign_record
+from accelerated.signs import make_sign, sign_record, SIGN_BY_UUID
+from accelerated import sections as sec
 from accelerated.io import read, save
 from accelerated.packet import Encoder
 import lz4.block
@@ -56,6 +57,21 @@ def build(root, flat=False):
     timer_ids = {t['controllerId'] for c in (clock, svc) for t in c['timers']}
     flat_width = {}
     exposed = pixel_ids | key_ids | monitors | timer_ids | {l[k] for l in links for k in ('source', 'receiver')}
+    section_of, section_colour, section_count = {}, {}, {}
+    if flat:
+        # Paint by functional section instead of by gate type. Colours are spread by maximin distance
+        # and kept away from the fixed colours already on the board.
+        labels = {n['controllerId']: n['label'] for n in read(src / 'circuit-map.json')['nodes']}
+        allowed_top = dict(cpu='rv32e_cpu', terminal='rv_terminal')
+        fixed = ['34465E', 'EEEEEE', 'DFE0E1', '4C6FE3', 'D96852', 'F5D742']
+        for domain in ('cpu', 'terminal'):
+            ids = [i for i in parts if owner[i] == domain and i not in exposed]
+            found = sec.assign_sections(labels, original_edges, ids)
+            allowed = sec.DOMAIN_SECTIONS[domain]
+            section_of.update({i: v if v in allowed else sec.TOP_DEFAULT[allowed_top[domain]] for i, v in found.items()})
+            counts = Counter(section_of[i] for i in ids if section_of[i])
+            section_count[domain] = counts
+            section_colour[domain] = sec.section_colors(sorted(counts, key=lambda k: (-counts[k], k)), fixed)
     for domain, origin in [('terminal', (-15, 3, 1)), ('cpu', (-15, 40, 1))]:
         ids = sorted((i for i in parts if owner[i] == domain and i not in exposed))
         if flat:
@@ -69,6 +85,8 @@ def build(root, flat=False):
                 row, col = divmod(n, width)
                 x0, y0 = (FLAT_CONSOLE_X, FLAT_CONSOLE_Y) if domain == 'terminal' else (origin[0], FLAT_CORE_Y)
                 parts[i].update(pos=dict(x=x0 + col + 1, y=y0 + 1, z=1 + row), xaxis=-1, zaxis=3)
+                if section_of.get(i):
+                    parts[i]['color'] = section_colour[domain][section_of[i]]
             flat_width[domain] = width
             continue
         side = 1
@@ -161,6 +179,13 @@ def build(root, flat=False):
             label('CORE MODULE', 0, FLAT_CORE_TIMER_Y - 2 if flat else 70)
             for n, t in enumerate(clock['timers']):
                 label('CPU ' + str(n + 1), parts[t['controllerId']]['pos']['x'] - 1, FLAT_CORE_TIMER_Y + 3 if flat else 75)
+        if flat:
+            # Colour key along the foot of the wall, each sign painted in its section's colour.
+            x = -15 if domain == 'cpu' else FLAT_CONSOLE_X
+            for section, count in section_count[domain].most_common():
+                label(sec.TITLES.get(section, section.upper()), x, FLAT_CORE_Y - 2 if domain == 'cpu' else FLAT_CONSOLE_Y - 3)
+                children[-1]['color'] = section_colour[domain][section]
+                x += SIGN_BY_UUID[children[-1]['shapeId']].size[0] + 1
         pad_y = 30 if domain == 'cpu' else 29
         block(-20, pad_y, 0, 3, 1, 1, color='F5D742')
         block(-20, pad_y, 1, color='F5D742')
@@ -188,6 +213,8 @@ def build(root, flat=False):
         stats = dict(parts=len(children), logic_blocks=sum((p['shapeId'] == GATE_UUID for p in children)), timers=sum((p['shapeId'] == TIMER_UUID for p in children)), wires=sum((len(p.get('controller', {}).get('controllers') or []) for p in children)))
         row = dict(folder=str(folder.resolve()), blueprint_name=description['name'], blueprint_sha256=hashlib.sha256(data).hexdigest(), packet_bytes=packet, headroom_bytes=524288 - packet, stats=stats, support=support, domain=domain)
         save(folder / 'link-map.json', dict(links=links, module=domain))
+        if flat:
+            save(folder / 'section-map.json', dict(sections={k: dict(title=sec.TITLES.get(k, k), colour=section_colour[domain][k], logic_blocks=n) for k, n in section_count[domain].most_common()}))
         save(folder / 'module-report.json', row)
         module_records[domain] = row
         all_modules += deepcopy(module['bodies'][0]['childs'])

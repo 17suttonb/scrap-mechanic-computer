@@ -5,6 +5,7 @@ import json
 import re
 import time
 from accelerated.circuit import Circuit, DEFAULT_BLUEPRINTS
+from accelerated import sections
 
 @dataclass(frozen=True)
 class Token:
@@ -366,6 +367,7 @@ class Builder:
         self.storage = set()
         self.wide_gates = False
         self.latch_style = 'nor'
+        self.section = None
 
     def allocate(self):
         if self.next_net > self.limit * 4:
@@ -393,7 +395,7 @@ class Builder:
         if len(self.gates) >= self.limit:
             raise HDLError(f'Design exceeds {self.limit:,} logic blocks before fan-out buffers.', token)
         n = self.allocate()
-        self.gates[n] = dict(kind=kind, sources=tuple(sources), label=label or kind, initial=initial, token=token)
+        self.gates[n] = dict(kind=kind, sources=tuple(sources), label=label or (f'{kind} @{self.section}' if self.section else kind), initial=initial, token=token)
         return n
 
     def gate(self, kind, a, b=None):
@@ -949,9 +951,11 @@ class Elaborator:
             category = statement[0]
             if category == 'assign':
                 _, token, target, value = statement
+                outer, self.builder.section = (self.builder.section, sections.classify(stack, sections.target_name(target)))
                 destination = self.target(target, env)
                 source = self.bits(self.evaluate(value, env, len(destination)), value.token, len(destination))
                 self.builder.drive(destination, source, token)
+                self.builder.section = outer
             elif category == 'generate':
                 _, label, var, bounds, body = statement
                 if var.text in env:
@@ -967,7 +971,9 @@ class Elaborator:
                     self.statements(body, env, prefix + label.text + '.', stack)
             else:
                 _, label, entity, overrides, mappings = statement
+                outer, self.builder.section = (self.builder.section, sections.INSTANCE_SECTION.get(entity.text, self.builder.section))
                 self.instantiate(entity.text, overrides, mappings, env, prefix + label.text + '.', stack)
+                self.builder.section = outer
 
 @dataclass
 class Build:
