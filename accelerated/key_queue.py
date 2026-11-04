@@ -12,7 +12,7 @@ INDEX_BITS = 6
 
 
 def build_queue(c, gate, keys, reset, taken, available, depth=8):
-    """Return (event_per_key, lamp). `available` is the downstream-free level."""
+    """Return (event_per_key, lamp). `available` is the downstream-free level; the lamp is that level while the queue has room."""
     n = len(keys)
     assert n <= 1 << INDEX_BITS
 
@@ -77,8 +77,8 @@ def build_queue(c, gate, keys, reset, taken, available, depth=8):
     valid_q = [s['q'] for s in valid_c]
 
     full = gate('OR', [gate('AND', [wp[i], valid_q[i]], f'Q full{i}') for i in range(depth)], 'Q full')
-    lamp = gate('NOR', [full, reset], 'Q key ready', True)
     nfull = inv(full, 'Q not full')
+    lamp = gate('AND', [available, nfull], 'Q key ready', True)
     # A press right behind another would overlap the write pipeline; drop it rather than corrupt a slot.
     lockout = gate('OR', [], 'Q write lockout')
     nlock = gate('NOR', [lockout], 'Q write unlocked', True)

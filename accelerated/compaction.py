@@ -2,7 +2,7 @@ from collections import Counter, deque
 from copy import deepcopy
 from accelerated.hdl import Build
 
-def compact_build(build, max_consumers=1, beta=False):
+def compact_build(build, max_consumers=1, beta=False, double_inversions_enabled=False):
     if max_consumers not in (1, 2):
         raise ValueError('Compaction supports one or two consumers')
     circuit = build.circuit.clone()
@@ -70,7 +70,7 @@ def compact_build(build, max_consumers=1, beta=False):
         pending.extend(sorted(upstream))
         pending.extend(sorted(targets))
     double_inversions = 0
-    while beta:
+    while beta and double_inversions_enabled:
         changed = False
         for node in sorted(circuit.nodes):
             if node not in circuit.nodes or node in protected or node in timing or len(parents[node]) != 1:
