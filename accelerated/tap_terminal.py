@@ -25,7 +25,7 @@ def source(text, debug=False):
         extra += '  debug_code <= code;debug_event <= key_event;debug_valid <= valid_key;debug_any <= any_key;debug_settled <= key_settled;\n'
     return text.replace('  font_code(0)', extra + '  font_code(0)', 1)
 
-def attach(build):
+def attach(build, queue_depth=0):
     c = build.circuit.clone()
     ports = deepcopy(build.ports)
     keys = ports['keys']['node_ids']
@@ -57,11 +57,17 @@ def attach(build):
         c.connect(i, clearing)
     available = gate('NOR', [], 'key ready', True)
     pending = []
-    for key, physical in zip(KEYS, keys):
-        h1 = gate('OR', [physical], f'{key} press history 1')
-        h2 = gate('OR', [h1], f'{key} press history 2')
-        stretch = gate('OR', [physical, h1, h2], f'{key} press stretch')
-        event = gate('AND', [stretch, available], f'{key} admitted press')
+    if queue_depth:
+        from accelerated.key_queue import build_queue
+        events, lamp = build_queue(c, gate, keys, reset, taken, available, queue_depth)
+    for n, (key, physical) in enumerate(zip(KEYS, keys)):
+        if queue_depth:
+            event = events[n]
+        else:
+            h1 = gate('OR', [physical], f'{key} press history 1')
+            h2 = gate('OR', [h1], f'{key} press history 2')
+            stretch = gate('OR', [physical, h1, h2], f'{key} press stretch')
+            event = gate('AND', [stretch, available], f'{key} admitted press')
         q = gate('NOR', [], f'latch Q {key}')
         inverse = gate('NOR', [], f'latch /Q {key}', True)
         history = gate('OR', [q], f'{key} feedback history')
@@ -78,17 +84,18 @@ def attach(build):
     recent = gate('OR', history, 'pending release guard')
     for i in (clearing, recent, reset, busy):
         c.connect(i, available)
-    replacement = {**dict(zip(keys, pending)), settled_pin: settled, available_pin: available}
+    replacement = {**dict(zip(keys, pending)), settled_pin: settled, available_pin: lamp if queue_depth else available}
     c.edges = {(replacement.get(a, a), b) for a, b in old_edges} | c.edges - old_edges
     c.remove({settled_pin, available_pin})
     c.validate()
     report = deepcopy(build.report)
-    report.update(keyboard_ready_label='KEY READY', tap_keyboard=dict(capacity=1, physical_keys=len(keys), minimum_tested_press_updates=None, settle_updates=16, policy='Tap once when KEY READY is ON; release; next key when KEY READY returns. Chords and presses while unavailable are discarded.', retained_until_console_capture=True, held_key_repeat=False), blocks=len(c.nodes), wires=len(c.edges), gates=dict(Counter((n['kind'] for n in c.nodes.values()))))
+    report.update(keyboard_ready_label='KEY READY', tap_keyboard=dict(capacity=queue_depth or 1, physical_keys=len(keys), minimum_tested_press_updates=None, settle_updates=16, policy=(f'FIFO of {queue_depth} keystrokes: tap keys in order; KEY READY is ON while the queue has room. Chords and presses while the queue is full are discarded.' if queue_depth else 'Tap once when KEY READY is ON; release; next key when KEY READY returns. Chords and presses while unavailable are discarded.'), retained_until_console_capture=True, held_key_repeat=False), blocks=len(c.nodes), wires=len(c.edges), gates=dict(Counter((n['kind'] for n in c.nodes.values()))))
     return Build(c, ports, report, build.source)
 
 def terminal(boot_text, **options):
     debug = options.pop('debug', False)
+    queue_depth = options.pop('key_queue', 0)
     provider = character_terminal.old_source
     with patch.object(character_terminal, 'old_source', lambda *a, **kw: source(provider(*a, **kw), debug)):
         build = character_terminal.terminal(boot_text, **options)
-    return attach(build)
+    return attach(build, queue_depth)

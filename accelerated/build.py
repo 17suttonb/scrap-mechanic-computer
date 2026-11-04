@@ -18,7 +18,7 @@ from accelerated.split import prototype
 from accelerated.layout import build as layout
 from accelerated.io import read, save
 
-def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False):
+def build_current(package_root, output, work, flat=False, beta=False, fast_shifts=False, key_queue=0):
     package_root = Path(package_root).resolve()
     recipe = read(package_root / 'release.json')
     work = Path(work).resolve() / str(uuid.uuid4())
@@ -26,7 +26,7 @@ def build_current(package_root, output, work, flat=False, beta=False, fast_shift
     program = assemble((package_root / 'firmware/basic.s').read_text(encoding='utf-8'), compact_li=beta)
     if hashlib.sha256(program.image).hexdigest() != recipe['firmware_sha256'] and not beta:
         raise ValueError('Firmware differs from the current release')
-    display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True)
+    display = terminal(tuple(recipe['boot_text']), help_text=tuple(recipe['help_text']), columns=12, latch_style='pulse_xor', expose_length=True, key_queue=key_queue)
     factory = partial(cpu, data_rom=False, beta=beta, fast_shifts=fast_shifts)
     result = compile_system(program.image, factory, complete_service, display)
     result = compact_build(terminal_cpu(result, ('service_capture', 'service_commit', 'keys', 'terminal_pixels', 'busy', 'full')), max_consumers=2, beta=beta)
