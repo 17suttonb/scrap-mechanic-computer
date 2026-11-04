@@ -332,6 +332,9 @@ def restart(g):
     assert g.m.menu_ready('2'), g.m.text()
     g.m.start_program('2')
     sim.advance(2400)
+    # a cell shows a transient glyph as it changes
+    while '#' in ''.join(g.m.text()):
+        sim.advance(2)
     board = g.m.text()
     print('after RESET', menu)
     print(f'?2+3 in {seconds:.2f} s', answer)

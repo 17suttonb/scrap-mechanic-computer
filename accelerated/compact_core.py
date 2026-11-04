@@ -48,12 +48,12 @@ def analysis_metadata(image):
 
 def metadata(image):
     """Decode view: rows inside the CART (first, end) byte range are supplied by an external
-    cartridge, so the baked-in decoder must know nothing about them."""
+    cartridge, so the baked-in decoder must know nothing about them, nor about the padding before them."""
     rows = analysis_metadata(image)
     if CART is None:
         return rows
     first, end = CART
-    return [dict.fromkeys(r, 0) | dict(pc=r['pc'], link=r['pc'] + 4) if first <= r['pc'] < end else r for r in rows]
+    return [dict.fromkeys(r, 0) | dict(pc=r['pc'], link=r['pc'] + 4) if first <= r['pc'] < end or not r['word'] else r for r in rows]
 
 
 def source(image, ram_bytes=32, *, data_rom=True):
